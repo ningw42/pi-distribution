@@ -24,8 +24,7 @@ The remaining extension implementations and their public Pi resources are
 dependencies recorded in `package.json` and `package-lock.json`; they are not
 copied into `vendor/`:
 
-- `pi-askuserquestion`, from `ghoseb/pi-askuserquestion` commit
-  `e58609c9e9c8c4e8a0348c96eaad38dd7e6f0578`
+- `@juicesharp/rpiv-ask-user-question` 2.4.0 (MIT)
 - `pi-cc-extensions` 0.8.44
 - `@quintinshaw/pi-dynamic-workflows` 3.5.1, a continuation of Michael
   Livs' original `pi-dynamic-workflows`
@@ -38,4 +37,4 @@ The aggregate also exposes the two workflow skills from
 `pi-mcp-adapter`, and the `github-dark-default` and `cc-dark` themes from
 `pi-cc-extensions`. Their upstream license files, supporting skill files, and
 package metadata remain within their installed or bundled package directories.
-At the pinned commit, `pi-askuserquestion` does not declare a license.
+The bundled `@juicesharp/rpiv-ask-user-question` package includes its MIT license.

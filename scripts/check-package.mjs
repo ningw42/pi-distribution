@@ -15,7 +15,7 @@ const lock = readJson("package-lock.json");
 const expectedExtensions = [
   "./extensions/pi-rtk/index.ts",
   "./extensions/pi-statusline/index.ts",
-  "./extensions/pi-askuserquestion/index.ts",
+  "./extensions/rpiv-ask-user-question/index.ts",
   "./extensions/pi-cc-extensions/index.ts",
   "./extensions/pi-dynamic-workflows/index.ts",
   "./extensions/pi-mcp-adapter/index.ts",
@@ -35,8 +35,7 @@ const expectedDependencies = {
   "@quintinshaw/pi-dynamic-workflows": "3.5.1",
   "@tintinweb/pi-subagents": "0.14.3",
   "@tintinweb/pi-tasks": "0.7.2",
-  "pi-askuserquestion":
-    "https://codeload.github.com/ghoseb/pi-askuserquestion/tar.gz/e58609c9e9c8c4e8a0348c96eaad38dd7e6f0578",
+  "@juicesharp/rpiv-ask-user-question": "2.4.0",
   "pi-cc-extensions": "0.8.44",
   "pi-mcp-adapter": "2.21.0",
 };
@@ -50,8 +49,8 @@ const expectedShims = {
   "extensions/pi-rtk/index.ts": 'export { default } from "../../vendor/pi-rtk/index.ts";\n',
   "extensions/pi-statusline/index.ts":
     'export { default } from "../../vendor/pi-statusline/index.ts";\n',
-  "extensions/pi-askuserquestion/index.ts":
-    'export { default } from "pi-askuserquestion/src/index.ts";\n',
+  "extensions/rpiv-ask-user-question/index.ts":
+    'export { default } from "@juicesharp/rpiv-ask-user-question";\n',
   "extensions/pi-cc-extensions/index.ts":
     'export { default } from "pi-cc-extensions/extensions/index.ts";\n',
   "extensions/pi-dynamic-workflows/index.ts":
@@ -64,7 +63,10 @@ const expectedShims = {
     'export { default } from "@tintinweb/pi-tasks/src/index.ts";\n',
 };
 const dependencyTargets = {
-  "node_modules/pi-askuserquestion/src/index.ts": ["pi-askuserquestion", "1.0.0"],
+  "node_modules/@juicesharp/rpiv-ask-user-question/index.ts": [
+    "@juicesharp/rpiv-ask-user-question",
+    "2.4.0",
+  ],
   "node_modules/pi-cc-extensions/extensions/index.ts": ["pi-cc-extensions", "0.8.44"],
   "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts": [
     "@quintinshaw/pi-dynamic-workflows",
@@ -107,7 +109,10 @@ assert.equal(Object.hasOwn(pkg.dependencies, "pi-tasks"), false);
 for (const [path, expected] of Object.entries(expectedShims)) {
   assert.equal(readText(path), expected, `${path} must remain a forwarding-only shim`);
 }
-for (const dependency of ["pi-askuserquestion", "@quintinshaw/pi-dynamic-workflows"]) {
+for (const dependency of [
+  "@juicesharp/rpiv-ask-user-question",
+  "@quintinshaw/pi-dynamic-workflows",
+]) {
   assert.equal(
     existsSync(join(root, `vendor/${dependency}`)),
     false,
@@ -126,9 +131,12 @@ for (const [entryPath, [name, version]] of Object.entries(dependencyTargets)) {
 assert.equal(lock.lockfileVersion, 3);
 assert.deepEqual(lock.packages[""].dependencies, expectedDependencies);
 assert.deepEqual(sorted(lock.packages[""].bundleDependencies), sorted(Object.keys(expectedDependencies)));
-const askLock = lock.packages["node_modules/pi-askuserquestion"];
-assert.equal(askLock.version, "1.0.0");
-assert.equal(askLock.resolved, expectedDependencies["pi-askuserquestion"]);
+const askLock = lock.packages["node_modules/@juicesharp/rpiv-ask-user-question"];
+assert.equal(askLock.version, "2.4.0");
+assert.equal(
+  askLock.resolved,
+  "https://registry.npmjs.org/@juicesharp/rpiv-ask-user-question/-/rpiv-ask-user-question-2.4.0.tgz",
+);
 assert.match(askLock.integrity, /^sha512-/);
 
 const rtk = readText("vendor/pi-rtk/index.ts");

@@ -12,7 +12,7 @@ The package exposes exactly eight extensions through a uniform forwarding-shim l
 |---|---|---|
 | `pi-rtk` | Canonical generated Pi integration from `rtk-ai/rtk` | RTK 0.44.2 / `700bdde3343299ea06bbca18dc6670a80c88b289` |
 | `pi-statusline` | Package-maintained portable statusline | repository version |
-| `pi-askuserquestion` | GitHub tarball dependency, not vendored source | `ghoseb/pi-askuserquestion@e58609c9e9c8c4e8a0348c96eaad38dd7e6f0578` |
+| `rpiv-ask-user-question` | npm dependency `@juicesharp/rpiv-ask-user-question` | 2.4.0 |
 | `pi-cc-extensions` | npm dependency | 0.8.44 |
 | `pi-dynamic-workflows` | npm dependency `@quintinshaw/pi-dynamic-workflows` | 3.5.1 |
 | `pi-mcp-adapter` | npm dependency | 2.21.0 |
@@ -121,8 +121,6 @@ npm install --save-exact <package>@<version>
 npm test
 npm run smoke
 ```
-
-For `pi-askuserquestion`, replace the full commit in the codeload URL rather than copying its source into this repository. Review its lockfile `resolved` URL and integrity after every update.
 
 The unscoped npm packages `pi-subagents` and `pi-tasks` are unrelated projects. Continue using `@tintinweb/pi-subagents` and `@tintinweb/pi-tasks`.
 
