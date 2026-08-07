@@ -17,6 +17,7 @@ const expectedExtensions = [
   "./extensions/pi-statusline/index.ts",
   "./extensions/pi-askuserquestion/index.ts",
   "./extensions/pi-cc-extensions/index.ts",
+  "./extensions/pi-dynamic-workflows/index.ts",
   "./extensions/pi-mcp-adapter/index.ts",
   "./extensions/pi-subagents/index.ts",
   "./extensions/pi-tasks/index.ts",
@@ -27,6 +28,7 @@ const expectedDependencies = {
   "pi-askuserquestion":
     "https://codeload.github.com/ghoseb/pi-askuserquestion/tar.gz/e58609c9e9c8c4e8a0348c96eaad38dd7e6f0578",
   "pi-cc-extensions": "0.8.44",
+  "pi-dynamic-workflows": "1.0.1",
   "pi-mcp-adapter": "2.21.0",
 };
 const expectedPeers = {
@@ -43,6 +45,8 @@ const expectedShims = {
     'export { default } from "pi-askuserquestion/src/index.ts";\n',
   "extensions/pi-cc-extensions/index.ts":
     'export { default } from "pi-cc-extensions/extensions/index.ts";\n',
+  "extensions/pi-dynamic-workflows/index.ts":
+    'export { default } from "pi-dynamic-workflows/extensions/workflow.ts";\n',
   "extensions/pi-mcp-adapter/index.ts":
     'export { default } from "pi-mcp-adapter/index.ts";\n',
   "extensions/pi-subagents/index.ts":
@@ -53,6 +57,7 @@ const expectedShims = {
 const dependencyTargets = {
   "node_modules/pi-askuserquestion/src/index.ts": ["pi-askuserquestion", "1.0.0"],
   "node_modules/pi-cc-extensions/extensions/index.ts": ["pi-cc-extensions", "0.8.44"],
+  "node_modules/pi-dynamic-workflows/extensions/workflow.ts": ["pi-dynamic-workflows", "1.0.1"],
   "node_modules/pi-mcp-adapter/index.ts": ["pi-mcp-adapter", "2.21.0"],
   "node_modules/@tintinweb/pi-subagents/src/index.ts": ["@tintinweb/pi-subagents", "0.14.3"],
   "node_modules/@tintinweb/pi-tasks/src/index.ts": ["@tintinweb/pi-tasks", "0.7.2"],
@@ -61,7 +66,7 @@ const dependencyTargets = {
 assert.equal(pkg.private, true, "the package must remain private until publication is intentional");
 assert.equal(pkg.license, "UNLICENSED");
 assert.deepEqual(pkg.pi?.extensions, expectedExtensions);
-assert.equal(new Set(pkg.pi.extensions).size, 7, "extension paths must be unique");
+assert.equal(new Set(pkg.pi.extensions).size, 8, "extension paths must be unique");
 for (const resourceType of ["skills", "themes", "prompts"]) {
   assert.equal(
     Object.hasOwn(pkg.pi, resourceType),
@@ -84,11 +89,13 @@ assert.equal(Object.hasOwn(pkg.dependencies, "pi-tasks"), false);
 for (const [path, expected] of Object.entries(expectedShims)) {
   assert.equal(readText(path), expected, `${path} must remain a forwarding-only shim`);
 }
-assert.equal(
-  existsSync(join(root, "vendor/pi-askuserquestion")),
-  false,
-  "pi-askuserquestion must remain a dependency, not vendored source",
-);
+for (const dependency of ["pi-askuserquestion", "pi-dynamic-workflows"]) {
+  assert.equal(
+    existsSync(join(root, `vendor/${dependency}`)),
+    false,
+    `${dependency} must remain a dependency, not vendored source`,
+  );
+}
 
 for (const [entryPath, [name, version]] of Object.entries(dependencyTargets)) {
   assert.equal(existsSync(join(root, entryPath)), true, `missing dependency entry point: ${entryPath}`);
@@ -121,4 +128,4 @@ assert.match(
   /const STARSHIP_BIN = process\.env\.PI_STATUSLINE_STARSHIP \|\| "starship";/,
 );
 
-console.log("package checks passed: 7 forwarding shims, 5 pinned dependencies, 2 local implementations");
+console.log("package checks passed: 8 forwarding shims, 6 pinned dependencies, 2 local implementations");

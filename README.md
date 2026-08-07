@@ -2,7 +2,7 @@
 
 A curated aggregate [Pi package](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/packages.md) containing a cohesive set of coding-agent extensions.
 
-The package exposes exactly seven extensions through a uniform forwarding-shim layer. It deliberately exposes no themes, skills, or prompt templates.
+The package exposes exactly eight extensions through a uniform forwarding-shim layer. It deliberately exposes no themes, skills, or prompt templates.
 
 ## Included extensions
 
@@ -12,6 +12,7 @@ The package exposes exactly seven extensions through a uniform forwarding-shim l
 | `pi-statusline` | Package-maintained portable statusline | repository version |
 | `pi-askuserquestion` | GitHub tarball dependency, not vendored source | `ghoseb/pi-askuserquestion@e58609c9e9c8c4e8a0348c96eaad38dd7e6f0578` |
 | `pi-cc-extensions` | npm dependency | 0.8.44 |
+| `pi-dynamic-workflows` | npm dependency | 1.0.1 |
 | `pi-mcp-adapter` | npm dependency | 2.21.0 |
 | `pi-subagents` | npm dependency `@tintinweb/pi-subagents` | 0.14.3 |
 | `pi-tasks` | npm dependency `@tintinweb/pi-tasks` | 0.7.2 |
@@ -80,7 +81,7 @@ The smoke test:
 1. validates the manifest, shims, pins, RTK hash, and statusline portability;
 2. creates the npm tarball and checks its contents;
 3. installs that tarball into a temporary clean prefix;
-4. loads each of the seven forwarding shims independently with Pi RPC mode;
+4. loads each of the eight forwarding shims independently with Pi RPC mode;
 5. loads the aggregate and checks representative extension commands;
 6. fails on extension errors or an aggregate-provided skill.
 

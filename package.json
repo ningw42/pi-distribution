@@ -25,6 +25,7 @@
     "@tintinweb/pi-tasks": "0.7.2",
     "pi-askuserquestion": "https://codeload.github.com/ghoseb/pi-askuserquestion/tar.gz/e58609c9e9c8c4e8a0348c96eaad38dd7e6f0578",
     "pi-cc-extensions": "0.8.44",
+    "pi-dynamic-workflows": "1.0.1",
     "pi-mcp-adapter": "2.21.0"
   },
   "bundledDependencies": [
@@ -32,6 +33,7 @@
     "@tintinweb/pi-tasks",
     "pi-askuserquestion",
     "pi-cc-extensions",
+    "pi-dynamic-workflows",
     "pi-mcp-adapter"
   ],
   "peerDependencies": {
@@ -60,6 +62,7 @@
       "./extensions/pi-statusline/index.ts",
       "./extensions/pi-askuserquestion/index.ts",
       "./extensions/pi-cc-extensions/index.ts",
+      "./extensions/pi-dynamic-workflows/index.ts",
       "./extensions/pi-mcp-adapter/index.ts",
       "./extensions/pi-subagents/index.ts",
       "./extensions/pi-tasks/index.ts"
