@@ -22,6 +22,15 @@ const expectedExtensions = [
   "./extensions/pi-subagents/index.ts",
   "./extensions/pi-tasks/index.ts",
 ];
+const expectedSkills = [
+  "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring",
+  "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns",
+  "./node_modules/pi-mcp-adapter/skills/mcp-scripting",
+];
+const expectedThemes = [
+  "./node_modules/pi-cc-extensions/themes/github-dark-default.json",
+  "./node_modules/pi-cc-extensions/themes/cc-dark.json",
+];
 const expectedDependencies = {
   "@quintinshaw/pi-dynamic-workflows": "3.5.1",
   "@tintinweb/pi-subagents": "0.14.3",
@@ -68,14 +77,20 @@ const dependencyTargets = {
 
 assert.equal(pkg.private, true, "the package must remain private until publication is intentional");
 assert.equal(pkg.license, "UNLICENSED");
-assert.deepEqual(pkg.pi?.extensions, expectedExtensions);
-assert.equal(new Set(pkg.pi.extensions).size, 8, "extension paths must be unique");
-for (const resourceType of ["skills", "themes", "prompts"]) {
+assert.deepEqual(pkg.pi, {
+  extensions: expectedExtensions,
+  skills: expectedSkills,
+  themes: expectedThemes,
+});
+for (const [resourceType, expectedPaths] of Object.entries(pkg.pi)) {
   assert.equal(
-    Object.hasOwn(pkg.pi, resourceType),
-    false,
-    `pi.${resourceType} must be absent rather than merely empty`,
+    new Set(expectedPaths).size,
+    expectedPaths.length,
+    `pi.${resourceType} paths must be unique`,
   );
+  for (const path of expectedPaths) {
+    assert.equal(existsSync(join(root, path)), true, `missing pi.${resourceType} resource: ${path}`);
+  }
 }
 
 assert.deepEqual(pkg.dependencies, expectedDependencies);
@@ -131,4 +146,6 @@ assert.match(
   /const STARSHIP_BIN = process\.env\.PI_STATUSLINE_STARSHIP \|\| "starship";/,
 );
 
-console.log("package checks passed: 8 forwarding shims, 6 pinned dependencies, 2 local implementations");
+console.log(
+  "package checks passed: 8 extensions, 3 skills, 2 themes, 6 pinned dependencies, 2 local implementations",
+);

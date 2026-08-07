@@ -20,8 +20,9 @@ It resolves Starship portably through `PATH` while retaining
 
 ## Package dependencies
 
-The remaining extension implementations are dependencies recorded in
-`package.json` and `package-lock.json`; they are not copied into `vendor/`:
+The remaining extension implementations and their public Pi resources are
+dependencies recorded in `package.json` and `package-lock.json`; they are not
+copied into `vendor/`:
 
 - `pi-askuserquestion`, from `ghoseb/pi-askuserquestion` commit
   `e58609c9e9c8c4e8a0348c96eaad38dd7e6f0578`
@@ -32,6 +33,9 @@ The remaining extension implementations are dependencies recorded in
 - `@tintinweb/pi-subagents` 0.14.3
 - `@tintinweb/pi-tasks` 0.7.2
 
-Their upstream license files and package metadata remain within their installed
-or bundled package directories. At the pinned commit, `pi-askuserquestion` does
-not declare a license.
+The aggregate also exposes the two workflow skills from
+`@quintinshaw/pi-dynamic-workflows`, the `mcp-scripting` skill from
+`pi-mcp-adapter`, and the `github-dark-default` and `cc-dark` themes from
+`pi-cc-extensions`. Their upstream license files, supporting skill files, and
+package metadata remain within their installed or bundled package directories.
+At the pinned commit, `pi-askuserquestion` does not declare a license.

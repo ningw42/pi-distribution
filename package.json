@@ -1,7 +1,7 @@
 {
   "name": "pi-distribution",
   "version": "0.1.0",
-  "description": "A curated aggregate package of Pi extensions",
+  "description": "An aggregate package of Pi extensions, skills, and themes",
   "private": true,
   "type": "module",
   "license": "UNLICENSED",
@@ -66,6 +66,15 @@
       "./extensions/pi-mcp-adapter/index.ts",
       "./extensions/pi-subagents/index.ts",
       "./extensions/pi-tasks/index.ts"
+    ],
+    "skills": [
+      "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring",
+      "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns",
+      "./node_modules/pi-mcp-adapter/skills/mcp-scripting"
+    ],
+    "themes": [
+      "./node_modules/pi-cc-extensions/themes/github-dark-default.json",
+      "./node_modules/pi-cc-extensions/themes/cc-dark.json"
     ]
   },
   "packageManager": "npm@11.16.0"

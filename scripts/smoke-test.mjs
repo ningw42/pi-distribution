@@ -1,5 +1,15 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -7,6 +17,15 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+const expectedSkillResources = [
+  "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring",
+  "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns",
+  "./node_modules/pi-mcp-adapter/skills/mcp-scripting",
+];
+const expectedThemeResources = [
+  "./node_modules/pi-cc-extensions/themes/github-dark-default.json",
+  "./node_modules/pi-cc-extensions/themes/cc-dark.json",
+];
 const tempRoot = mkdtempSync(join(tmpdir(), "pi-distribution-smoke-"));
 const packDir = join(tempRoot, "pack");
 const installDir = join(tempRoot, "install");
@@ -43,6 +62,12 @@ function writeExecutable(name, body) {
   const path = join(binDir, name);
   writeFileSync(path, body);
   chmodSync(path, 0o755);
+}
+
+function collectResourceFiles(path) {
+  const absolutePath = join(root, path);
+  if (!statSync(absolutePath).isDirectory()) return [path];
+  return readdirSync(absolutePath).flatMap((entry) => collectResourceFiles(join(path, entry)));
 }
 
 function rpcSmoke(source) {
@@ -108,11 +133,12 @@ try {
     "package/node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
     "package/node_modules/@quintinshaw/pi-dynamic-workflows/package.json",
     "package/node_modules/@quintinshaw/pi-dynamic-workflows/LICENSE",
-    "package/node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring/SKILL.md",
-    "package/node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns/SKILL.md",
     "package/node_modules/pi-mcp-adapter/index.ts",
     "package/node_modules/@tintinweb/pi-subagents/src/index.ts",
     "package/node_modules/@tintinweb/pi-tasks/src/index.ts",
+    ...[...expectedSkillResources, ...expectedThemeResources]
+      .flatMap(collectResourceFiles)
+      .map((path) => `package/${path.replace(/^\.\//, "")}`),
   ];
   for (const entry of requiredArchiveEntries) {
     assert.equal(archiveEntries.includes(entry), true, `packed artifact is missing ${entry}`);
@@ -128,6 +154,12 @@ try {
   run("npm", ["install", "--ignore-scripts", "--legacy-peer-deps", "--prefix", installDir, tarball]);
   const installedPackage = join(installDir, "node_modules", pkg.name);
   assert.equal(existsSync(join(installedPackage, "package.json")), true);
+  const installedManifest = JSON.parse(readFileSync(join(installedPackage, "package.json"), "utf8"));
+  assert.deepEqual(installedManifest.pi, {
+    extensions: pkg.pi.extensions,
+    skills: expectedSkillResources,
+    themes: expectedThemeResources,
+  });
 
   for (const extension of pkg.pi.extensions) {
     const source = join(installedPackage, extension);
@@ -140,18 +172,54 @@ try {
   for (const expectedCommand of ["agents", "tasks", "mcp", "workflows"]) {
     assert.equal(commandNames.has(expectedCommand), true, `aggregate is missing /${expectedCommand}`);
   }
-  assert.equal(
-    commands.some(
-      (command) =>
-        command.source === "skill" &&
-        JSON.stringify(command).includes(installedPackage),
-    ),
-    false,
-    "the aggregate exposed a dependency-provided skill",
+  const expectedSkillCommands = [
+    [
+      "skill:workflow-authoring",
+      join(
+        installedPackage,
+        "node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring/SKILL.md",
+      ),
+      "cli",
+      "temporary",
+      "top-level",
+    ],
+    [
+      "skill:workflow-patterns",
+      join(
+        installedPackage,
+        "node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns/SKILL.md",
+      ),
+      "cli",
+      "temporary",
+      "top-level",
+    ],
+    [
+      "skill:mcp-scripting",
+      join(installedPackage, "node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md"),
+      "cli",
+      "temporary",
+      "top-level",
+    ],
+  ].sort(([left], [right]) => left.localeCompare(right));
+  const skillCommands = commands
+    .filter((command) => command.source === "skill")
+    .map((command) => [
+      command.name,
+      command.sourceInfo?.path,
+      command.sourceInfo?.source,
+      command.sourceInfo?.scope,
+      command.sourceInfo?.origin,
+    ])
+    .sort(([left], [right]) => left.localeCompare(right));
+  assert.deepEqual(skillCommands, expectedSkillCommands, "aggregate skill commands or provenance differ");
+  assert.deepEqual(
+    commands.filter((command) => command.source === "prompt"),
+    [],
+    "the aggregate exposed an undeclared prompt template",
   );
 
   console.log(
-    `smoke test passed: ${pkg.pi.extensions.length} extensions loaded from ${packed.filename} (${packed.size} bytes)`,
+    `smoke test passed: ${pkg.pi.extensions.length} extensions, ${pkg.pi.skills.length} skills, and ${pkg.pi.themes.length} themes loaded from ${packed.filename} (${packed.size} bytes)`,
   );
 } finally {
   if (process.env.KEEP_SMOKE_TMP === "1") {

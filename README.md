@@ -1,10 +1,12 @@
 # pi-distribution
 
-A curated aggregate [Pi package](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/packages.md) containing a cohesive set of coding-agent extensions.
+An aggregate [Pi package](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/packages.md) containing a cohesive set of coding-agent extensions and every Pi resource shipped with them.
 
-The package exposes exactly eight extensions through a uniform forwarding-shim layer. It deliberately exposes no themes, skills, or prompt templates.
+The package exposes exactly eight extensions through a uniform forwarding-shim layer, three skills, and two themes. None of the aggregated implementations ships a prompt template.
 
-## Included extensions
+## Included resources
+
+### Extensions
 
 | Extension | Implementation source | Pin |
 |---|---|---|
@@ -17,7 +19,19 @@ The package exposes exactly eight extensions through a uniform forwarding-shim l
 | `pi-subagents` | npm dependency `@tintinweb/pi-subagents` | 0.14.3 |
 | `pi-tasks` | npm dependency `@tintinweb/pi-tasks` | 0.7.2 |
 
-Every public entry is `extensions/<name>/index.ts`. The entries only forward to a local implementation under `vendor/` or to a pinned package under `node_modules/`; this keeps Pi's displayed names stable and prevents dependency package manifests from exposing unrelated resources.
+Every public extension entry is `extensions/<name>/index.ts`. The entries only forward to a local implementation under `vendor/` or to a pinned package under `node_modules/`, which keeps Pi's displayed extension names stable.
+
+### Skills and themes
+
+| Resource | Type | Implementation source | Purpose |
+|---|---|---|---|
+| `workflow-authoring` | Skill | `@quintinshaw/pi-dynamic-workflows` 3.5.1 | Guidance and supporting references/examples for authoring and debugging workflow scripts |
+| `workflow-patterns` | Skill | `@quintinshaw/pi-dynamic-workflows` 3.5.1 | Argument guidance for the five built-in workflow patterns |
+| `mcp-scripting` | Skill | `pi-mcp-adapter` 2.21.0 | Guidance for composing multi-call `mcpScript` programs |
+| `github-dark-default` | Theme | `pi-cc-extensions` 0.8.44 | GitHub Dark Default styling |
+| `cc-dark` | Theme | `pi-cc-extensions` 0.8.44 | Claude Code-inspired dark styling |
+
+The root manifest names these resources through exact `node_modules/` paths. Pi does not recursively activate dependency package manifests.
 
 ## Install
 
@@ -31,7 +45,7 @@ pi install /absolute/path/to/pi-distribution
 pi install git:github.com/ningw42/pi-distribution@<revision>
 ```
 
-Pi runs `npm install` for Git packages. This repository commits `package-lock.json`, uses exact dependency versions, and configures npm to leave Pi-provided peer packages unresolved so Pi supplies its own runtime modules.
+Pi runs `npm install` for Git packages. This repository commits `package-lock.json`, uses exact dependency versions, and configures npm to leave Pi-provided peer packages unresolved so Pi supplies its own runtime modules. Installing the aggregate makes all eight extensions, all three skills, and both themes available.
 
 ## Runtime prerequisites
 
@@ -57,9 +71,16 @@ It belongs in `~/.pi/agent/claude-code-style.json`.
 
 ## Resource scope
 
-The aggregate `package.json` declares only `pi.extensions`. It has no `pi.themes`, `pi.skills`, or `pi.prompts` keys.
+The aggregate root is the public resource interface. Its `package.json` explicitly declares the complete resource union shipped by the aggregated implementations:
 
-Some bundled dependencies physically contain their own optional resources—for example, `pi-cc-extensions` ships themes, `pi-mcp-adapter` ships an MCP scripting skill, and `@quintinshaw/pi-dynamic-workflows` ships workflow-authoring skills. Those files may be present in the packed dependency trees, but this aggregate never declares or loads them.
+- eight extensions;
+- `workflow-authoring` and `workflow-patterns` from dynamic workflows;
+- `mcp-scripting` from the MCP adapter;
+- `github-dark-default` and `cc-dark` from Pi CC Extensions.
+
+Nothing in that current nested Pi resource interface is suppressed. No dependency ships a prompt template, so `pi.prompts` is absent. The arrays use exact paths rather than a recursive loader: dependency manifests are not activated by Pi, and adding an unrelated file under `node_modules` does not silently expand the public interface.
+
+Both themes are available after installation, but installation does not select one. Theme selection—and any external theme such as Catppuccin—remains consumer configuration.
 
 ## Development and verification
 
@@ -83,7 +104,9 @@ The smoke test:
 3. installs that tarball into a temporary clean prefix;
 4. loads each of the eight forwarding shims independently with Pi RPC mode;
 5. loads the aggregate and checks representative extension commands;
-6. fails on extension errors or an aggregate-provided skill.
+6. verifies the exact three skill commands and their provenance;
+7. verifies the exact theme paths, every file under the exposed skill directories, and the absence of prompt templates;
+8. fails on extension errors or any missing or extra public resource.
 
 Set `KEEP_SMOKE_TMP=1` to retain its temporary package and logs for inspection.
 
