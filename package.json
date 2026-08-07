@@ -22,18 +22,18 @@
   },
   "dependencies": {
     "@tintinweb/pi-subagents": "0.14.3",
+    "@quintinshaw/pi-dynamic-workflows": "3.5.1",
     "@tintinweb/pi-tasks": "0.7.2",
     "pi-askuserquestion": "https://codeload.github.com/ghoseb/pi-askuserquestion/tar.gz/e58609c9e9c8c4e8a0348c96eaad38dd7e6f0578",
     "pi-cc-extensions": "0.8.44",
-    "pi-dynamic-workflows": "1.0.1",
     "pi-mcp-adapter": "2.21.0"
   },
   "bundledDependencies": [
+    "@quintinshaw/pi-dynamic-workflows",
     "@tintinweb/pi-subagents",
     "@tintinweb/pi-tasks",
     "pi-askuserquestion",
     "pi-cc-extensions",
-    "pi-dynamic-workflows",
     "pi-mcp-adapter"
   ],
   "peerDependencies": {

@@ -26,7 +26,8 @@ The remaining extension implementations are dependencies recorded in
 - `pi-askuserquestion`, from `ghoseb/pi-askuserquestion` commit
   `e58609c9e9c8c4e8a0348c96eaad38dd7e6f0578`
 - `pi-cc-extensions` 0.8.44
-- `pi-dynamic-workflows` 1.0.1
+- `@quintinshaw/pi-dynamic-workflows` 3.5.1, a continuation of Michael
+  Livs' original `pi-dynamic-workflows`
 - `pi-mcp-adapter` 2.21.0
 - `@tintinweb/pi-subagents` 0.14.3
 - `@tintinweb/pi-tasks` 0.7.2

@@ -23,12 +23,12 @@ const expectedExtensions = [
   "./extensions/pi-tasks/index.ts",
 ];
 const expectedDependencies = {
+  "@quintinshaw/pi-dynamic-workflows": "3.5.1",
   "@tintinweb/pi-subagents": "0.14.3",
   "@tintinweb/pi-tasks": "0.7.2",
   "pi-askuserquestion":
     "https://codeload.github.com/ghoseb/pi-askuserquestion/tar.gz/e58609c9e9c8c4e8a0348c96eaad38dd7e6f0578",
   "pi-cc-extensions": "0.8.44",
-  "pi-dynamic-workflows": "1.0.1",
   "pi-mcp-adapter": "2.21.0",
 };
 const expectedPeers = {
@@ -46,7 +46,7 @@ const expectedShims = {
   "extensions/pi-cc-extensions/index.ts":
     'export { default } from "pi-cc-extensions/extensions/index.ts";\n',
   "extensions/pi-dynamic-workflows/index.ts":
-    'export { default } from "pi-dynamic-workflows/extensions/workflow.ts";\n',
+    'export { default } from "@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts";\n',
   "extensions/pi-mcp-adapter/index.ts":
     'export { default } from "pi-mcp-adapter/index.ts";\n',
   "extensions/pi-subagents/index.ts":
@@ -57,7 +57,10 @@ const expectedShims = {
 const dependencyTargets = {
   "node_modules/pi-askuserquestion/src/index.ts": ["pi-askuserquestion", "1.0.0"],
   "node_modules/pi-cc-extensions/extensions/index.ts": ["pi-cc-extensions", "0.8.44"],
-  "node_modules/pi-dynamic-workflows/extensions/workflow.ts": ["pi-dynamic-workflows", "1.0.1"],
+  "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts": [
+    "@quintinshaw/pi-dynamic-workflows",
+    "3.5.1",
+  ],
   "node_modules/pi-mcp-adapter/index.ts": ["pi-mcp-adapter", "2.21.0"],
   "node_modules/@tintinweb/pi-subagents/src/index.ts": ["@tintinweb/pi-subagents", "0.14.3"],
   "node_modules/@tintinweb/pi-tasks/src/index.ts": ["@tintinweb/pi-tasks", "0.7.2"],
@@ -89,7 +92,7 @@ assert.equal(Object.hasOwn(pkg.dependencies, "pi-tasks"), false);
 for (const [path, expected] of Object.entries(expectedShims)) {
   assert.equal(readText(path), expected, `${path} must remain a forwarding-only shim`);
 }
-for (const dependency of ["pi-askuserquestion", "pi-dynamic-workflows"]) {
+for (const dependency of ["pi-askuserquestion", "@quintinshaw/pi-dynamic-workflows"]) {
   assert.equal(
     existsSync(join(root, `vendor/${dependency}`)),
     false,

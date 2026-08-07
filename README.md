@@ -12,7 +12,7 @@ The package exposes exactly eight extensions through a uniform forwarding-shim l
 | `pi-statusline` | Package-maintained portable statusline | repository version |
 | `pi-askuserquestion` | GitHub tarball dependency, not vendored source | `ghoseb/pi-askuserquestion@e58609c9e9c8c4e8a0348c96eaad38dd7e6f0578` |
 | `pi-cc-extensions` | npm dependency | 0.8.44 |
-| `pi-dynamic-workflows` | npm dependency | 1.0.1 |
+| `pi-dynamic-workflows` | npm dependency `@quintinshaw/pi-dynamic-workflows` | 3.5.1 |
 | `pi-mcp-adapter` | npm dependency | 2.21.0 |
 | `pi-subagents` | npm dependency `@tintinweb/pi-subagents` | 0.14.3 |
 | `pi-tasks` | npm dependency `@tintinweb/pi-tasks` | 0.7.2 |
@@ -59,7 +59,7 @@ It belongs in `~/.pi/agent/claude-code-style.json`.
 
 The aggregate `package.json` declares only `pi.extensions`. It has no `pi.themes`, `pi.skills`, or `pi.prompts` keys.
 
-Some bundled dependencies physically contain their own optional resources—for example, `pi-cc-extensions` ships themes and `pi-mcp-adapter` ships an MCP scripting skill. Those files may be present in the packed dependency trees, but this aggregate never declares or loads them.
+Some bundled dependencies physically contain their own optional resources—for example, `pi-cc-extensions` ships themes, `pi-mcp-adapter` ships an MCP scripting skill, and `@quintinshaw/pi-dynamic-workflows` ships workflow-authoring skills. Those files may be present in the packed dependency trees, but this aggregate never declares or loads them.
 
 ## Development and verification
 

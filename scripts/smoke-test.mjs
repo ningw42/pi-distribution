@@ -105,7 +105,11 @@ try {
     "package/vendor/pi-statusline/index.ts",
     "package/node_modules/pi-askuserquestion/src/index.ts",
     "package/node_modules/pi-cc-extensions/extensions/index.ts",
-    "package/node_modules/pi-dynamic-workflows/extensions/workflow.ts",
+    "package/node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
+    "package/node_modules/@quintinshaw/pi-dynamic-workflows/package.json",
+    "package/node_modules/@quintinshaw/pi-dynamic-workflows/LICENSE",
+    "package/node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring/SKILL.md",
+    "package/node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns/SKILL.md",
     "package/node_modules/pi-mcp-adapter/index.ts",
     "package/node_modules/@tintinweb/pi-subagents/src/index.ts",
     "package/node_modules/@tintinweb/pi-tasks/src/index.ts",
@@ -133,7 +137,7 @@ try {
 
   const commands = rpcSmoke(installedPackage);
   const commandNames = new Set(commands.filter((command) => command.source === "extension").map((command) => command.name));
-  for (const expectedCommand of ["agents", "tasks", "mcp"]) {
+  for (const expectedCommand of ["agents", "tasks", "mcp", "workflows"]) {
     assert.equal(commandNames.has(expectedCommand), true, `aggregate is missing /${expectedCommand}`);
   }
   assert.equal(
