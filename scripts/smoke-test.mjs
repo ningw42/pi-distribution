@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+const rtkMetadata = JSON.parse(readFileSync(join(root, "vendor/pi-rtk/metadata.json"), "utf8"));
 const expectedSkillResources = [
   "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring",
   "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns",
@@ -106,7 +107,7 @@ try {
 
   writeExecutable(
     "rtk",
-    `#!/bin/sh\nif [ "$1" = "--version" ]; then\n  echo "rtk 0.44.2"\n  exit 0\nfi\nif [ "$1" = "rewrite" ]; then\n  exit 1\nfi\nexit 1\n`,
+    `#!/bin/sh\nif [ "$1" = "--version" ]; then\n  echo "rtk ${rtkMetadata.version}"\n  exit 0\nfi\nif [ "$1" = "rewrite" ]; then\n  exit 1\nfi\nexit 1\n`,
   );
   writeExecutable("starship", "#!/bin/sh\nexit 0\n");
 
@@ -127,6 +128,8 @@ try {
     "package/extensions/pi-subagents/index.ts",
     "package/extensions/pi-tasks/index.ts",
     "package/vendor/pi-rtk/index.ts",
+    "package/vendor/pi-rtk/LICENSE",
+    "package/vendor/pi-rtk/metadata.json",
     "package/vendor/pi-statusline/index.ts",
     "package/node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
     "package/node_modules/@juicesharp/rpiv-ask-user-question/LICENSE",

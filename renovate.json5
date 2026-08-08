@@ -1,0 +1,39 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "enabledManagers": ["npm"],
+  "baseBranchPatterns": ["master"],
+  "branchPrefix": "renovate/npm-",
+  "rangeStrategy": "pin",
+  "dependencyDashboard": true,
+  "automerge": false,
+  "branchConcurrentLimit": 1,
+  "prConcurrentLimit": 1,
+  "prHourlyLimit": 1,
+  "lockFileMaintenance": {
+    "enabled": false
+  },
+  "packageRules": [
+    {
+      "description": "Disable npm metadata that pi-distribution does not update",
+      "matchManagers": ["npm"],
+      "matchDepTypes": [
+        "devDependencies",
+        "optionalDependencies",
+        "peerDependencies",
+        "packageManager"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Update all exact direct dependencies in one reviewed PR",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["dependencies"],
+      "rangeStrategy": "pin",
+      "groupName": "npm dependencies",
+      "groupSlug": "npm-dependencies",
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "labels": ["auto-release:npm"]
+    }
+  ]
+}

@@ -8,16 +8,16 @@ The package exposes exactly eight extensions through a uniform forwarding-shim l
 
 ### Extensions
 
-| Extension | Implementation source | Pin |
+| Extension | Implementation source | Version source |
 |---|---|---|
-| `pi-rtk` | Canonical generated Pi integration from `rtk-ai/rtk` | RTK 0.44.2 / `700bdde3343299ea06bbca18dc6670a80c88b289` |
+| `pi-rtk` | Canonical generated Pi integration from `rtk-ai/rtk` | [`vendor/pi-rtk/metadata.json`](vendor/pi-rtk/metadata.json) |
 | `pi-statusline` | Package-maintained portable statusline | repository version |
-| `rpiv-ask-user-question` | npm dependency `@juicesharp/rpiv-ask-user-question` | 2.4.0 |
-| `pi-cc-extensions` | npm dependency | 0.8.44 |
-| `pi-dynamic-workflows` | npm dependency `@quintinshaw/pi-dynamic-workflows` | 3.5.1 |
-| `pi-mcp-adapter` | npm dependency | 2.21.0 |
-| `pi-subagents` | npm dependency `@tintinweb/pi-subagents` | 0.14.3 |
-| `pi-tasks` | npm dependency `@tintinweb/pi-tasks` | 0.7.2 |
+| `rpiv-ask-user-question` | npm dependency `@juicesharp/rpiv-ask-user-question` | `package.json` |
+| `pi-cc-extensions` | npm dependency | `package.json` |
+| `pi-dynamic-workflows` | npm dependency `@quintinshaw/pi-dynamic-workflows` | `package.json` |
+| `pi-mcp-adapter` | npm dependency | `package.json` |
+| `pi-subagents` | npm dependency `@tintinweb/pi-subagents` | `package.json` |
+| `pi-tasks` | npm dependency `@tintinweb/pi-tasks` | `package.json` |
 
 Every public extension entry is `extensions/<name>/index.ts`. The entries only forward to a local implementation under `vendor/` or to a pinned package under `node_modules/`, which keeps Pi's displayed extension names stable.
 
@@ -25,11 +25,11 @@ Every public extension entry is `extensions/<name>/index.ts`. The entries only f
 
 | Resource | Type | Implementation source | Purpose |
 |---|---|---|---|
-| `workflow-authoring` | Skill | `@quintinshaw/pi-dynamic-workflows` 3.5.1 | Guidance and supporting references/examples for authoring and debugging workflow scripts |
-| `workflow-patterns` | Skill | `@quintinshaw/pi-dynamic-workflows` 3.5.1 | Argument guidance for the five built-in workflow patterns |
-| `mcp-scripting` | Skill | `pi-mcp-adapter` 2.21.0 | Guidance for composing multi-call `mcpScript` programs |
-| `github-dark-default` | Theme | `pi-cc-extensions` 0.8.44 | GitHub Dark Default styling |
-| `cc-dark` | Theme | `pi-cc-extensions` 0.8.44 | Claude Code-inspired dark styling |
+| `workflow-authoring` | Skill | `@quintinshaw/pi-dynamic-workflows` | Guidance and supporting references/examples for authoring and debugging workflow scripts |
+| `workflow-patterns` | Skill | `@quintinshaw/pi-dynamic-workflows` | Argument guidance for the five built-in workflow patterns |
+| `mcp-scripting` | Skill | `pi-mcp-adapter` | Guidance for composing multi-call `mcpScript` programs |
+| `github-dark-default` | Theme | `pi-cc-extensions` | GitHub Dark Default styling |
+| `cc-dark` | Theme | `pi-cc-extensions` | Claude Code-inspired dark styling |
 
 The root manifest names these resources through exact `node_modules/` paths. Pi does not recursively activate dependency package manifests.
 
@@ -50,7 +50,7 @@ Pi runs `npm install` for Git packages. This repository commits `package-lock.js
 ## Runtime prerequisites
 
 - Pi 0.84 or a compatible later version.
-- `rtk >= 0.23` in `PATH`. The vendored integration currently tracks RTK 0.44.2.
+- `rtk >= 0.23` in `PATH`. The tracked generator release is recorded in [`vendor/pi-rtk/metadata.json`](vendor/pi-rtk/metadata.json).
 - `starship` in `PATH` for the statusline's directory and Git segments.
 
 Set `PI_STATUSLINE_STARSHIP` to use an explicit Starship binary path:
@@ -110,14 +110,18 @@ The smoke test:
 
 Set `KEEP_SMOKE_TMP=1` to retain its temporary package and logs for inspection.
 
+## Repository automation
+
+See [`AUTOMATION_SETUP.md`](AUTOMATION_SETUP.md) for the required GitHub App, credential, repository-rule, and first-run setup.
+
 ## Updating
 
 ### Package dependencies
 
-Update only one dependency at a time and keep exact versions:
+Update direct dependencies together and keep exact versions:
 
 ```bash
-npm install --save-exact <package>@<version>
+npm install --save-exact <package>@<version> [<package>@<version> ...]
 npm test
 npm run smoke
 ```
@@ -126,13 +130,13 @@ The unscoped npm packages `pi-subagents` and `pi-tasks` are unrelated projects. 
 
 ### RTK
 
-Update `vendor/pi-rtk/index.ts` from `hooks/pi/rtk.ts` at the same RTK revision as the installed CLI, or regenerate it with:
+Regenerate the vendored extension, synchronize its license, and record provenance from the locally installed RTK CLI with:
 
 ```bash
-HOME="$(mktemp -d)" rtk init -g --agent pi --no-patch
+npm run update:pi-rtk
 ```
 
-Then update the expected SHA-256 in `scripts/check-package.mjs`, the pin table above, and `NOTICE.md`. Keep the Apache-2.0 license copy synchronized.
+Set `RTK_BIN=/absolute/path/to/rtk` to select a specific binary. The updater runs `rtk init -g --agent pi --no-patch` under a temporary home, verifies the generated source against the matching upstream tag, and updates only `vendor/pi-rtk/`.
 
 ### Statusline
 

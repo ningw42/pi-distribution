@@ -31,14 +31,14 @@ const expectedThemes = [
   "./node_modules/pi-cc-extensions/themes/github-dark-default.json",
   "./node_modules/pi-cc-extensions/themes/cc-dark.json",
 ];
-const expectedDependencies = {
-  "@quintinshaw/pi-dynamic-workflows": "3.5.1",
-  "@tintinweb/pi-subagents": "0.14.3",
-  "@tintinweb/pi-tasks": "0.7.2",
-  "@juicesharp/rpiv-ask-user-question": "2.4.0",
-  "pi-cc-extensions": "0.8.44",
-  "pi-mcp-adapter": "2.21.0",
-};
+const expectedDependencyNames = [
+  "@juicesharp/rpiv-ask-user-question",
+  "@quintinshaw/pi-dynamic-workflows",
+  "@tintinweb/pi-subagents",
+  "@tintinweb/pi-tasks",
+  "pi-cc-extensions",
+  "pi-mcp-adapter",
+];
 const expectedPeers = {
   "@earendil-works/pi-ai": "*",
   "@earendil-works/pi-coding-agent": "*",
@@ -63,18 +63,14 @@ const expectedShims = {
     'export { default } from "@tintinweb/pi-tasks/src/index.ts";\n',
 };
 const dependencyTargets = {
-  "node_modules/@juicesharp/rpiv-ask-user-question/index.ts": [
+  "node_modules/@juicesharp/rpiv-ask-user-question/index.ts":
     "@juicesharp/rpiv-ask-user-question",
-    "2.4.0",
-  ],
-  "node_modules/pi-cc-extensions/extensions/index.ts": ["pi-cc-extensions", "0.8.44"],
-  "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts": [
+  "node_modules/pi-cc-extensions/extensions/index.ts": "pi-cc-extensions",
+  "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts":
     "@quintinshaw/pi-dynamic-workflows",
-    "3.5.1",
-  ],
-  "node_modules/pi-mcp-adapter/index.ts": ["pi-mcp-adapter", "2.21.0"],
-  "node_modules/@tintinweb/pi-subagents/src/index.ts": ["@tintinweb/pi-subagents", "0.14.3"],
-  "node_modules/@tintinweb/pi-tasks/src/index.ts": ["@tintinweb/pi-tasks", "0.7.2"],
+  "node_modules/pi-mcp-adapter/index.ts": "pi-mcp-adapter",
+  "node_modules/@tintinweb/pi-subagents/src/index.ts": "@tintinweb/pi-subagents",
+  "node_modules/@tintinweb/pi-tasks/src/index.ts": "@tintinweb/pi-tasks",
 };
 
 assert.equal(pkg.private, true, "the package must remain private until publication is intentional");
@@ -95,8 +91,11 @@ for (const [resourceType, expectedPaths] of Object.entries(pkg.pi)) {
   }
 }
 
-assert.deepEqual(pkg.dependencies, expectedDependencies);
-assert.deepEqual(sorted(pkg.bundledDependencies), sorted(Object.keys(expectedDependencies)));
+assert.deepEqual(sorted(Object.keys(pkg.dependencies)), sorted(expectedDependencyNames));
+for (const [name, version] of Object.entries(pkg.dependencies)) {
+  assert.match(version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, `${name} must use an exact version`);
+}
+assert.deepEqual(sorted(pkg.bundledDependencies), sorted(expectedDependencyNames));
 assert.deepEqual(pkg.peerDependencies, expectedPeers);
 for (const peer of Object.keys(expectedPeers)) {
   assert.deepEqual(pkg.peerDependenciesMeta?.[peer], { optional: true });
@@ -120,32 +119,47 @@ for (const dependency of [
   );
 }
 
-for (const [entryPath, [name, version]] of Object.entries(dependencyTargets)) {
+for (const [entryPath, name] of Object.entries(dependencyTargets)) {
   assert.equal(existsSync(join(root, entryPath)), true, `missing dependency entry point: ${entryPath}`);
   const packagePath = entryPath.slice(0, entryPath.indexOf(name) + name.length) + "/package.json";
   const dependencyPackage = readJson(packagePath);
   assert.equal(dependencyPackage.name, name);
-  assert.equal(dependencyPackage.version, version);
+  assert.equal(dependencyPackage.version, pkg.dependencies[name]);
 }
 
 assert.equal(lock.lockfileVersion, 3);
-assert.deepEqual(lock.packages[""].dependencies, expectedDependencies);
-assert.deepEqual(sorted(lock.packages[""].bundleDependencies), sorted(Object.keys(expectedDependencies)));
-const askLock = lock.packages["node_modules/@juicesharp/rpiv-ask-user-question"];
-assert.equal(askLock.version, "2.4.0");
+assert.deepEqual(lock.packages[""].dependencies, pkg.dependencies);
+assert.deepEqual(sorted(lock.packages[""].bundleDependencies), sorted(expectedDependencyNames));
+const askName = "@juicesharp/rpiv-ask-user-question";
+const askVersion = pkg.dependencies[askName];
+const askLock = lock.packages[`node_modules/${askName}`];
+assert.equal(askLock.version, askVersion);
 assert.equal(
   askLock.resolved,
-  "https://registry.npmjs.org/@juicesharp/rpiv-ask-user-question/-/rpiv-ask-user-question-2.4.0.tgz",
+  `https://registry.npmjs.org/${askName}/-/rpiv-ask-user-question-${askVersion}.tgz`,
 );
 assert.match(askLock.integrity, /^sha512-/);
 
-const rtk = readText("vendor/pi-rtk/index.ts");
+const rtkMetadata = readJson("vendor/pi-rtk/metadata.json");
+assert.equal(rtkMetadata.schemaVersion, 1);
+assert.equal(rtkMetadata.upstreamRepository, "rtk-ai/rtk");
+assert.match(rtkMetadata.version, /^\d+\.\d+\.\d+$/);
+assert.equal(rtkMetadata.tag, `v${rtkMetadata.version}`);
+assert.match(rtkMetadata.commit, /^[0-9a-f]{40}$/);
+assert.equal(rtkMetadata.generatorCommand, "rtk init -g --agent pi --no-patch");
+assert.equal(rtkMetadata.upstreamSourcePath, "hooks/pi/rtk.ts");
+assert.match(rtkMetadata.generatedSourceSha256, /^[0-9a-f]{64}$/);
+assert.match(rtkMetadata.licenseSha256, /^[0-9a-f]{64}$/);
 assert.equal(
-  createHash("sha256").update(rtk).digest("hex"),
-  "d278508809a5379e506384eabb19e17a672806c4eac7eabc1cd634699aea8c33",
-  "the RTK source must match the canonical RTK 0.44.2-generated extension",
+  createHash("sha256").update(readText("vendor/pi-rtk/index.ts")).digest("hex"),
+  rtkMetadata.generatedSourceSha256,
+  `the pi-rtk source must match the recorded RTK ${rtkMetadata.version} artifact`,
 );
-assert.equal(existsSync(join(root, "vendor/pi-rtk/LICENSE")), true);
+assert.equal(
+  createHash("sha256").update(readText("vendor/pi-rtk/LICENSE")).digest("hex"),
+  rtkMetadata.licenseSha256,
+  `the pi-rtk license must match the recorded RTK ${rtkMetadata.version} artifact`,
+);
 
 const statusline = readText("vendor/pi-statusline/index.ts");
 assert.equal(statusline.includes("@starshipBin@"), false, "the statusline must not retain Nix placeholders");
@@ -155,5 +169,5 @@ assert.match(
 );
 
 console.log(
-  "package checks passed: 8 extensions, 3 skills, 2 themes, 6 pinned dependencies, 2 local implementations",
+  `package checks passed: 8 extensions, 3 skills, 2 themes, ${expectedDependencyNames.length} pinned dependencies, 2 local implementations`,
 );

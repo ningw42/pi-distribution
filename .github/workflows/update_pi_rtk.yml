@@ -1,0 +1,159 @@
+name: Update pi-rtk
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 2 * * *"
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/update_pi_rtk.yml"
+      - ".github/actions/validate-package/action.yml"
+      - "scripts/update-pi-rtk.mjs"
+
+concurrency:
+  group: update-pi-rtk
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.changes.outputs.changed }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download and verify the latest RTK release
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          release="$work/release.json"
+          curl --fail --silent --show-error --location \
+            https://api.github.com/repos/rtk-ai/rtk/releases/latest > "$release"
+
+          tag="$(jq -er '.tag_name' "$release")"
+          version="${tag#v}"
+          [[ "$tag" == "v$version" && "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+
+          asset="rtk-x86_64-unknown-linux-musl.tar.gz"
+          asset_url="$(jq -er --arg name "$asset" \
+            '[.assets[] | select(.name == $name)] | if length == 1 then .[0].browser_download_url else error("expected one RTK archive") end' \
+            "$release")"
+          checksums_url="$(jq -er \
+            '[.assets[] | select(.name == "checksums.txt")] | if length == 1 then .[0].browser_download_url else error("expected checksums.txt") end' \
+            "$release")"
+
+          mkdir -p "$work/download" "$work/extract"
+          curl --fail --silent --show-error --location "$asset_url" -o "$work/download/$asset"
+          curl --fail --silent --show-error --location "$checksums_url" -o "$work/download/checksums.txt"
+
+          checksum_line="$(grep -F "  $asset" "$work/download/checksums.txt")"
+          [[ "$(printf '%s\n' "$checksum_line" | wc -l)" -eq 1 ]]
+          (cd "$work/download" && printf '%s\n' "$checksum_line" | sha256sum --check --strict -)
+
+          tar -xzf "$work/download/$asset" -C "$work/extract"
+          mapfile -t binaries < <(find "$work/extract" -type f -name rtk -print)
+          [[ "${#binaries[@]}" -eq 1 ]]
+          chmod +x "${binaries[0]}"
+          [[ "$("${binaries[0]}" --version)" == "rtk $version" ]]
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "RTK_BIN=${binaries[0]}" >> "$GITHUB_ENV"
+          echo "RTK_WORK=$work" >> "$GITHUB_ENV"
+
+      - name: Regenerate pi-rtk
+        env:
+          RTK_GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/update-pi-rtk.mjs
+
+      - name: Validate generated package
+        uses: ./.github/actions/validate-package
+
+      - name: Check generated change scope
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git status --short --untracked-files=all -- vendor/pi-rtk | sed 's/^...//')
+          if [[ "${#changed[@]}" -eq 0 ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          allowed=$'vendor/pi-rtk/LICENSE\nvendor/pi-rtk/index.ts\nvendor/pi-rtk/metadata.json'
+          actual="$(printf '%s\n' "${changed[@]}" | sort)"
+          while IFS= read -r path; do
+            grep -Fxq "$path" <<< "$allowed" || {
+              echo "unexpected generated path: $path" >&2
+              exit 1
+            }
+          done <<< "$actual"
+          git diff --check
+          tar -czf "$RUNNER_TEMP/pi-rtk-candidate.tar.gz" \
+            vendor/pi-rtk/LICENSE \
+            vendor/pi-rtk/index.ts \
+            vendor/pi-rtk/metadata.json
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload validated candidate
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: pi-rtk-${{ steps.release.outputs.version }}
+          path: ${{ runner.temp }}/pi-rtk-candidate.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  pull-request:
+    needs: generate
+    if: needs.generate.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Download validated candidate
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: pi-rtk-${{ needs.generate.outputs.version }}
+          path: ${{ runner.temp }}/candidate
+
+      - name: Validate and copy candidate files
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/candidate/pi-rtk-candidate.tar.gz"
+          expected=$'vendor/pi-rtk/LICENSE\nvendor/pi-rtk/index.ts\nvendor/pi-rtk/metadata.json'
+          actual="$(tar -tzf "$archive" | sort)"
+          [[ "$actual" == "$expected" ]]
+          tar -xzf "$archive" -C "$GITHUB_WORKSPACE"
+          git diff --check
+
+      - name: Create or update pi-rtk PR
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: auto-update/pi-rtk-${{ needs.generate.outputs.version }}
+          delete-branch: true
+          add-paths: vendor/pi-rtk
+          commit-message: "build(deps): update pi-rtk to ${{ needs.generate.outputs.version }}"
+          title: "build(deps): update pi-rtk to ${{ needs.generate.outputs.version }}"
+          body: |
+            Regenerates the vendored Pi integration with RTK ${{ needs.generate.outputs.version }}.
+
+            The update workflow verified the release checksum, generated source,
+            upstream source and license, package checks, and packed-artifact smoke test.
+            Merging this PR creates the next calendar-versioned release tag.
+          labels: auto-release:pi-rtk

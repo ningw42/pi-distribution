@@ -1,0 +1,31 @@
+name: Validate package
+description: Install the locked package and verify every published Pi resource
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v7.0.0
+      with:
+        node-version: 24
+        cache: npm
+
+    - name: Use the repository npm version
+      shell: bash
+      run: npm install --global npm@11.16.0
+
+    - name: Install package dependencies
+      shell: bash
+      run: npm ci --ignore-scripts
+
+    - name: Run package checks
+      shell: bash
+      run: npm test
+
+    - name: Install Pi for the packed-artifact smoke test
+      shell: bash
+      run: npm install --global --legacy-peer-deps @earendil-works/pi-coding-agent@latest
+
+    - name: Run smoke test
+      shell: bash
+      run: npm run smoke
