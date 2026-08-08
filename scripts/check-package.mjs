@@ -19,6 +19,7 @@ const expectedExtensions = [
   "./extensions/pi-cc-extensions/index.ts",
   "./extensions/pi-dynamic-workflows/index.ts",
   "./extensions/pi-mcp-adapter/index.ts",
+  "./extensions/pi-theme-picker/index.ts",
   "./extensions/pi-subagents/index.ts",
   "./extensions/pi-tasks/index.ts",
 ];
@@ -35,6 +36,7 @@ const expectedDependencyNames = [
   "@tintinweb/pi-tasks",
   "pi-cc-extensions",
   "pi-mcp-adapter",
+  "pi-theme-picker",
 ];
 const smokePiName = "@earendil-works/pi-coding-agent";
 const expectedDevDependencyNames = [smokePiName];
@@ -53,6 +55,7 @@ const shimTargets = {
   "extensions/pi-dynamic-workflows/index.ts":
     "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
   "extensions/pi-mcp-adapter/index.ts": "node_modules/pi-mcp-adapter/index.ts",
+  "extensions/pi-theme-picker/index.ts": "node_modules/pi-theme-picker/index.ts",
   "extensions/pi-subagents/index.ts": "node_modules/@tintinweb/pi-subagents/src/index.ts",
   "extensions/pi-tasks/index.ts": "node_modules/@tintinweb/pi-tasks/src/index.ts",
 };
@@ -63,6 +66,7 @@ const dependencyTargets = {
   "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts":
     "@quintinshaw/pi-dynamic-workflows",
   "node_modules/pi-mcp-adapter/index.ts": "pi-mcp-adapter",
+  "node_modules/pi-theme-picker/index.ts": "pi-theme-picker",
   "node_modules/@tintinweb/pi-subagents/src/index.ts": "@tintinweb/pi-subagents",
   "node_modules/@tintinweb/pi-tasks/src/index.ts": "@tintinweb/pi-tasks",
 };
@@ -126,6 +130,7 @@ for (const [path, target] of Object.entries(shimTargets)) {
 for (const dependency of [
   "@juicesharp/rpiv-ask-user-question",
   "@quintinshaw/pi-dynamic-workflows",
+  "pi-theme-picker",
 ]) {
   assert.equal(
     existsSync(join(root, `vendor/${dependency}`)),
@@ -159,6 +164,15 @@ assert.equal(
   `https://registry.npmjs.org/${askName}/-/rpiv-ask-user-question-${askVersion}.tgz`,
 );
 assert.match(askLock.integrity, /^sha512-/);
+const themePickerName = "pi-theme-picker";
+const themePickerVersion = pkg.dependencies[themePickerName];
+const themePickerLock = lock.packages[`node_modules/${themePickerName}`];
+assert.equal(themePickerLock.version, themePickerVersion);
+assert.equal(
+  themePickerLock.resolved,
+  `https://registry.npmjs.org/${themePickerName}/-/pi-theme-picker-${themePickerVersion}.tgz`,
+);
+assert.match(themePickerLock.integrity, /^sha512-/);
 
 const rtkMetadata = readJson("vendor/pi-rtk/metadata.json");
 assert.equal(rtkMetadata.schemaVersion, 1);
@@ -189,5 +203,5 @@ assert.match(
 );
 
 console.log(
-  `package checks passed: 8 extensions, 3 skills, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
+  `package checks passed: 9 extensions, 3 skills, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
 );

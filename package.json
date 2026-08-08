@@ -27,7 +27,8 @@
     "@tintinweb/pi-subagents": "0.14.3",
     "@tintinweb/pi-tasks": "0.7.2",
     "pi-cc-extensions": "0.8.48",
-    "pi-mcp-adapter": "2.21.0"
+    "pi-mcp-adapter": "2.21.0",
+    "pi-theme-picker": "0.1.2"
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "0.84.1"
@@ -38,7 +39,8 @@
     "@tintinweb/pi-tasks",
     "@juicesharp/rpiv-ask-user-question",
     "pi-cc-extensions",
-    "pi-mcp-adapter"
+    "pi-mcp-adapter",
+    "pi-theme-picker"
   ],
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
@@ -68,6 +70,7 @@
       "./extensions/pi-cc-extensions/index.ts",
       "./extensions/pi-dynamic-workflows/index.ts",
       "./extensions/pi-mcp-adapter/index.ts",
+      "./extensions/pi-theme-picker/index.ts",
       "./extensions/pi-subagents/index.ts",
       "./extensions/pi-tasks/index.ts"
     ],

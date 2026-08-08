@@ -30,6 +30,7 @@ copied into `vendor/`:
 - `@quintinshaw/pi-dynamic-workflows`, a continuation of Michael Livs'
   original `pi-dynamic-workflows`
 - `pi-mcp-adapter`
+- `pi-theme-picker` (MIT)
 - `@tintinweb/pi-subagents`
 - `@tintinweb/pi-tasks`
 
@@ -40,4 +41,4 @@ The aggregate also exposes the two workflow skills from
 `pi-mcp-adapter`, and every theme shipped in the pinned `pi-cc-extensions`
 theme directory. Their upstream license files, supporting skill and theme files,
 and package metadata remain within their installed or bundled package directories.
-The bundled `@juicesharp/rpiv-ask-user-question` package includes its MIT license.
+The bundled `@juicesharp/rpiv-ask-user-question` and `pi-theme-picker` packages include their MIT licenses.
