@@ -37,7 +37,7 @@ Exact installed versions are recorded in `package.json` and `package-lock.json`.
 
 The aggregate also exposes the two workflow skills from
 `@quintinshaw/pi-dynamic-workflows`, the `mcp-scripting` skill from
-`pi-mcp-adapter`, and the `github-dark-default` and `cc-dark` themes from
-`pi-cc-extensions`. Their upstream license files, supporting skill files, and
-package metadata remain within their installed or bundled package directories.
+`pi-mcp-adapter`, and every theme shipped in the pinned `pi-cc-extensions`
+theme directory. Their upstream license files, supporting skill and theme files,
+and package metadata remain within their installed or bundled package directories.
 The bundled `@juicesharp/rpiv-ask-user-question` package includes its MIT license.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,10 +27,7 @@ const expectedSkills = [
   "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns",
   "./node_modules/pi-mcp-adapter/skills/mcp-scripting",
 ];
-const expectedThemes = [
-  "./node_modules/pi-cc-extensions/themes/github-dark-default.json",
-  "./node_modules/pi-cc-extensions/themes/cc-dark.json",
-];
+const expectedThemes = ["./node_modules/pi-cc-extensions/themes"];
 const expectedDependencyNames = [
   "@juicesharp/rpiv-ask-user-question",
   "@quintinshaw/pi-dynamic-workflows",
@@ -87,6 +84,20 @@ for (const [resourceType, expectedPaths] of Object.entries(pkg.pi)) {
     assert.equal(existsSync(join(root, path)), true, `missing pi.${resourceType} resource: ${path}`);
   }
 }
+
+const themeDirectory = expectedThemes[0];
+const themeFiles = readdirSync(join(root, themeDirectory), { withFileTypes: true })
+  .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+  .map((entry) => `${themeDirectory}/${entry.name}`)
+  .sort();
+assert.ok(themeFiles.length > 0, `${themeDirectory} must contain at least one JSON theme`);
+const themeNames = themeFiles.map((path) => {
+  const theme = readJson(path);
+  assert.equal(typeof theme.name, "string", `${path} must declare a string theme name`);
+  assert.notEqual(theme.name.trim(), "", `${path} must declare a non-empty theme name`);
+  return theme.name;
+});
+assert.equal(new Set(themeNames).size, themeNames.length, "upstream theme names must be unique");
 
 assert.deepEqual(sorted(Object.keys(pkg.dependencies)), sorted(expectedDependencyNames));
 for (const [name, version] of Object.entries(pkg.dependencies)) {
@@ -178,5 +189,5 @@ assert.match(
 );
 
 console.log(
-  `package checks passed: 8 extensions, 3 skills, 2 themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
+  `package checks passed: 8 extensions, 3 skills, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
 );

@@ -23,15 +23,8 @@ const piPackage = JSON.parse(readFileSync(join(piPackageDir, "package.json"), "u
 const piCli = join(piPackageDir, piPackage.bin.pi);
 const smokeProcessEnv = { ...process.env };
 delete smokeProcessEnv.PI_PACKAGE_DIR;
-const expectedSkillResources = [
-  "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring",
-  "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns",
-  "./node_modules/pi-mcp-adapter/skills/mcp-scripting",
-];
-const expectedThemeResources = [
-  "./node_modules/pi-cc-extensions/themes/github-dark-default.json",
-  "./node_modules/pi-cc-extensions/themes/cc-dark.json",
-];
+const expectedSkillResources = pkg.pi.skills;
+const expectedThemeResources = pkg.pi.themes;
 const tempRoot = mkdtempSync(join(tmpdir(), "pi-distribution-smoke-"));
 const packDir = join(tempRoot, "pack");
 const installDir = join(tempRoot, "install");
@@ -75,6 +68,9 @@ function collectResourceFiles(path) {
   if (!statSync(absolutePath).isDirectory()) return [path];
   return readdirSync(absolutePath).flatMap((entry) => collectResourceFiles(join(path, entry)));
 }
+
+const expectedSkillFiles = expectedSkillResources.flatMap(collectResourceFiles);
+const expectedThemeFiles = expectedThemeResources.flatMap(collectResourceFiles);
 
 function rpcSmoke(source) {
   const result = run(
@@ -153,9 +149,9 @@ try {
     "package/node_modules/pi-mcp-adapter/index.ts",
     "package/node_modules/@tintinweb/pi-subagents/src/index.ts",
     "package/node_modules/@tintinweb/pi-tasks/src/index.ts",
-    ...[...expectedSkillResources, ...expectedThemeResources]
-      .flatMap(collectResourceFiles)
-      .map((path) => `package/${path.replace(/^\.\//, "")}`),
+    ...[...expectedSkillFiles, ...expectedThemeFiles].map(
+      (path) => `package/${path.replace(/^\.\//, "")}`,
+    ),
   ];
   for (const entry of requiredArchiveEntries) {
     assert.equal(archiveEntries.includes(entry), true, `packed artifact is missing ${entry}`);
@@ -178,11 +174,7 @@ try {
   const installedPackage = join(installDir, "node_modules", pkg.name);
   assert.equal(existsSync(join(installedPackage, "package.json")), true);
   const installedManifest = JSON.parse(readFileSync(join(installedPackage, "package.json"), "utf8"));
-  assert.deepEqual(installedManifest.pi, {
-    extensions: pkg.pi.extensions,
-    skills: expectedSkillResources,
-    themes: expectedThemeResources,
-  });
+  assert.deepEqual(installedManifest.pi, pkg.pi);
 
   for (const extension of pkg.pi.extensions) {
     const source = join(installedPackage, extension);
@@ -242,7 +234,7 @@ try {
   );
 
   console.log(
-    `smoke test passed: ${pkg.pi.extensions.length} extensions, ${pkg.pi.skills.length} skills, and ${pkg.pi.themes.length} themes loaded from ${packed.filename} (${packed.size} bytes)`,
+    `smoke test passed: ${pkg.pi.extensions.length} extensions, ${pkg.pi.skills.length} skills, and ${expectedThemeFiles.filter((path) => path.endsWith(".json")).length} themes loaded from ${packed.filename} (${packed.size} bytes)`,
   );
 } finally {
   if (process.env.KEEP_SMOKE_TMP === "1") {

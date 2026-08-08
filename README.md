@@ -2,7 +2,7 @@
 
 An aggregate [Pi package](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/packages.md) containing a cohesive set of coding-agent extensions and every Pi resource shipped with them.
 
-The package exposes exactly eight extensions through a uniform forwarding-shim layer, three skills, and two themes. None of the aggregated implementations ships a prompt template.
+The package exposes exactly eight extensions through a uniform forwarding-shim layer, three skills, and every theme shipped by the pinned `pi-cc-extensions` dependency. None of the aggregated implementations ships a prompt template.
 
 ## Included resources
 
@@ -28,10 +28,9 @@ Every public extension entry is `extensions/<name>/index.ts`. The entries only f
 | `workflow-authoring` | Skill | `@quintinshaw/pi-dynamic-workflows` | Guidance and supporting references/examples for authoring and debugging workflow scripts |
 | `workflow-patterns` | Skill | `@quintinshaw/pi-dynamic-workflows` | Argument guidance for the five built-in workflow patterns |
 | `mcp-scripting` | Skill | `pi-mcp-adapter` | Guidance for composing multi-call `mcpScript` programs |
-| `github-dark-default` | Theme | `pi-cc-extensions` | GitHub Dark Default styling |
-| `cc-dark` | Theme | `pi-cc-extensions` | Claude Code-inspired dark styling |
+| `pi-cc-extensions/themes` | Theme collection | `pi-cc-extensions` | All JSON themes shipped by the pinned dependency |
 
-The root manifest names these resources through exact `node_modules/` paths. Pi does not recursively activate dependency package manifests.
+The root manifest names the extensions and skills through exact `node_modules/` paths and exposes the dependency-owned theme directory. Pi does not recursively activate dependency package manifests.
 
 ## Install
 
@@ -45,7 +44,7 @@ pi install /absolute/path/to/pi-distribution
 pi install git:github.com/ningw42/pi-distribution@<revision>
 ```
 
-Pi runs `npm install` for Git packages. This repository commits `package-lock.json`, uses exact dependency versions, and configures npm to leave Pi-provided peer packages unresolved so Pi supplies its own runtime modules. Installing the aggregate makes all eight extensions, all three skills, and both themes available.
+Pi runs `npm install` for Git packages. This repository commits `package-lock.json`, uses exact dependency versions, and configures npm to leave Pi-provided peer packages unresolved so Pi supplies its own runtime modules. Installing the aggregate makes all eight extensions, all three skills, and the pinned dependency's themes available.
 
 ## Runtime prerequisites
 
@@ -59,16 +58,6 @@ Set `PI_STATUSLINE_STARSHIP` to use an explicit Starship binary path:
 export PI_STATUSLINE_STARSHIP=/absolute/path/to/starship
 ```
 
-For Pi 0.84, use this compatibility setting for `pi-cc-extensions`:
-
-```json
-{
-  "fixedEditorFeatures": false
-}
-```
-
-It belongs in `~/.pi/agent/claude-code-style.json`.
-
 ## Resource scope
 
 The aggregate root is the public resource interface. Its `package.json` explicitly declares the complete resource union shipped by the aggregated implementations:
@@ -76,11 +65,11 @@ The aggregate root is the public resource interface. Its `package.json` explicit
 - eight extensions;
 - `workflow-authoring` and `workflow-patterns` from dynamic workflows;
 - `mcp-scripting` from the MCP adapter;
-- `github-dark-default` and `cc-dark` from Pi CC Extensions.
+- every JSON theme in the pinned Pi CC Extensions theme directory.
 
-Nothing in that current nested Pi resource interface is suppressed. No dependency ships a prompt template, so `pi.prompts` is absent. The arrays use exact paths rather than a recursive loader: dependency manifests are not activated by Pi, and adding an unrelated file under `node_modules` does not silently expand the public interface.
+Nothing in that current nested Pi resource interface is suppressed. No dependency ships a prompt template, so `pi.prompts` is absent. Extension and skill entries use exact paths. The theme entry deliberately exposes only `node_modules/pi-cc-extensions/themes`, allowing that dependency to own its theme inventory without activating dependency manifests or unrelated files elsewhere under `node_modules`.
 
-Both themes are available after installation, but installation does not select one. Theme selection—and any external theme such as Catppuccin—remains consumer configuration.
+The themes are available after installation, but installation does not select one. Theme selection—and any external theme such as Catppuccin—remains consumer configuration.
 
 ## Development and verification
 
@@ -107,8 +96,8 @@ The smoke test:
 4. loads each of the eight forwarding shims independently with Pi RPC mode;
 5. loads the aggregate and checks representative extension commands;
 6. verifies the exact three skill commands and their provenance;
-7. verifies the exact theme paths, every file under the exposed skill directories, and the absence of prompt templates;
-8. fails on extension errors or any missing or extra public resource.
+7. verifies every file under the declared skill and theme resources and the absence of prompt templates;
+8. fails on extension errors, missing packed resources, or installed-manifest drift.
 
 Set `KEEP_SMOKE_TMP=1` to retain its temporary package and logs for inspection.
 

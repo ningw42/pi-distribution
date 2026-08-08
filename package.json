@@ -26,7 +26,7 @@
     "@quintinshaw/pi-dynamic-workflows": "3.5.1",
     "@tintinweb/pi-subagents": "0.14.3",
     "@tintinweb/pi-tasks": "0.7.2",
-    "pi-cc-extensions": "0.8.44",
+    "pi-cc-extensions": "0.8.48",
     "pi-mcp-adapter": "2.21.0"
   },
   "devDependencies": {
@@ -77,8 +77,7 @@
       "./node_modules/pi-mcp-adapter/skills/mcp-scripting"
     ],
     "themes": [
-      "./node_modules/pi-cc-extensions/themes/github-dark-default.json",
-      "./node_modules/pi-cc-extensions/themes/cc-dark.json"
+      "./node_modules/pi-cc-extensions/themes"
     ]
   },
   "packageManager": "npm@11.16.0"
