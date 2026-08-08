@@ -1,1 +1,1 @@
-export { default } from "@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts";
+export { default } from "../../node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts";

@@ -1,1 +1,1 @@
-export { default } from "@juicesharp/rpiv-ask-user-question";
+export { default } from "../../node_modules/@juicesharp/rpiv-ask-user-question/index.ts";

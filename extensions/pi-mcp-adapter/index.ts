@@ -1,1 +1,1 @@
-export { default } from "pi-mcp-adapter/index.ts";
+export { default } from "../../node_modules/pi-mcp-adapter/index.ts";

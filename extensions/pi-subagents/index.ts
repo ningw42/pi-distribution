@@ -1,1 +1,1 @@
-export { default } from "@tintinweb/pi-subagents/src/index.ts";
+export { default } from "../../node_modules/@tintinweb/pi-subagents/src/index.ts";

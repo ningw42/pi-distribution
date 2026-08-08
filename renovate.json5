@@ -16,18 +16,13 @@
     {
       "description": "Disable npm metadata that pi-distribution does not update",
       "matchManagers": ["npm"],
-      "matchDepTypes": [
-        "devDependencies",
-        "optionalDependencies",
-        "peerDependencies",
-        "packageManager"
-      ],
+      "matchDepTypes": ["optionalDependencies", "peerDependencies", "packageManager"],
       "enabled": false
     },
     {
       "description": "Update all exact direct dependencies in one reviewed PR",
       "matchManagers": ["npm"],
-      "matchDepTypes": ["dependencies"],
+      "matchDepTypes": ["dependencies", "devDependencies"],
       "rangeStrategy": "pin",
       "groupName": "npm dependencies",
       "groupSlug": "npm-dependencies",

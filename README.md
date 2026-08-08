@@ -97,6 +97,8 @@ Run the packed-artifact and real-Pi smoke test:
 npm run smoke
 ```
 
+The smoke test invokes the exact npm Pi development dependency from the lockfile. It does not use an ambient `pi` executable or `PI_PACKAGE_DIR`, so local and CI runs exercise the same Pi runtime.
+
 The smoke test:
 
 1. validates the manifest, shims, pins, RTK hash, and statusline portability;
@@ -118,7 +120,7 @@ See [`AUTOMATION_SETUP.md`](AUTOMATION_SETUP.md) for the required GitHub App, cr
 
 ### Package dependencies
 
-Update direct dependencies together and keep exact versions:
+Update runtime dependencies together and keep exact versions:
 
 ```bash
 npm install --save-exact <package>@<version> [<package>@<version> ...]
@@ -126,7 +128,15 @@ npm test
 npm run smoke
 ```
 
-The unscoped npm packages `pi-subagents` and `pi-tasks` are unrelated projects. Continue using `@tintinweb/pi-subagents` and `@tintinweb/pi-tasks`.
+Update the lockfile-controlled Pi smoke runtime as an exact development dependency:
+
+```bash
+npm install --save-dev --save-exact @earendil-works/pi-coding-agent@<version>
+npm test
+npm run smoke
+```
+
+Renovate groups both kinds of update into one reviewed PR. The unscoped npm packages `pi-subagents` and `pi-tasks` are unrelated projects. Continue using `@tintinweb/pi-subagents` and `@tintinweb/pi-tasks`.
 
 ### RTK
 

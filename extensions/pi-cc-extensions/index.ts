@@ -1,1 +1,1 @@
-export { default } from "pi-cc-extensions/extensions/index.ts";
+export { default } from "../../node_modules/pi-cc-extensions/extensions/index.ts";

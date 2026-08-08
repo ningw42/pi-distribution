@@ -18,6 +18,11 @@ import { fileURLToPath } from "node:url";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const rtkMetadata = JSON.parse(readFileSync(join(root, "vendor/pi-rtk/metadata.json"), "utf8"));
+const piPackageDir = join(root, "node_modules", "@earendil-works", "pi-coding-agent");
+const piPackage = JSON.parse(readFileSync(join(piPackageDir, "package.json"), "utf8"));
+const piCli = join(piPackageDir, piPackage.bin.pi);
+const smokeProcessEnv = { ...process.env };
+delete smokeProcessEnv.PI_PACKAGE_DIR;
 const expectedSkillResources = [
   "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring",
   "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns",
@@ -73,18 +78,18 @@ function collectResourceFiles(path) {
 
 function rpcSmoke(source) {
   const result = run(
-    "pi",
-    ["--mode", "rpc", "--no-session", "-e", source],
+    process.execPath,
+    [piCli, "--mode", "rpc", "--no-session", "-e", source],
     {
       cwd: workDir,
       input: '{"id":"smoke","type":"get_commands"}\n',
       timeout: 30_000,
       env: {
-        ...process.env,
+        ...smokeProcessEnv,
         HOME: homeDir,
         XDG_CONFIG_HOME: join(homeDir, ".config"),
         PI_CODING_AGENT_DIR: configDir,
-        PATH: `${binDir}:${process.env.PATH}`,
+        PATH: `${binDir}:${smokeProcessEnv.PATH ?? ""}`,
         NO_COLOR: "1",
       },
     },
@@ -103,6 +108,14 @@ function rpcSmoke(source) {
 }
 
 try {
+  assert.equal(
+    piPackage.version,
+    pkg.devDependencies["@earendil-works/pi-coding-agent"],
+    "the smoke test must use the lockfile-controlled Pi development dependency",
+  );
+  assert.equal(existsSync(piCli), true, `missing locked Pi CLI: ${piCli}`);
+  console.log(`using locked Pi ${piPackage.version}`);
+
   run(process.execPath, [join(root, "scripts/check-package.mjs")]);
 
   writeExecutable(
@@ -147,7 +160,13 @@ try {
   for (const entry of requiredArchiveEntries) {
     assert.equal(archiveEntries.includes(entry), true, `packed artifact is missing ${entry}`);
   }
-  for (const forbiddenPrefix of ["package/.pi/", "package/skills/", "package/themes/", "package/prompts/"]) {
+  for (const forbiddenPrefix of [
+    "package/.pi/",
+    "package/skills/",
+    "package/themes/",
+    "package/prompts/",
+    "package/node_modules/@earendil-works/pi-coding-agent/",
+  ]) {
     assert.equal(
       archiveEntries.some((entry) => entry.startsWith(forbiddenPrefix)),
       false,

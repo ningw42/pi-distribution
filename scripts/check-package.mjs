@@ -39,28 +39,25 @@ const expectedDependencyNames = [
   "pi-cc-extensions",
   "pi-mcp-adapter",
 ];
+const smokePiName = "@earendil-works/pi-coding-agent";
+const expectedDevDependencyNames = [smokePiName];
 const expectedPeers = {
   "@earendil-works/pi-ai": "*",
   "@earendil-works/pi-coding-agent": "*",
   "@earendil-works/pi-tui": "*",
   typebox: "*",
 };
-const expectedShims = {
-  "extensions/pi-rtk/index.ts": 'export { default } from "../../vendor/pi-rtk/index.ts";\n',
-  "extensions/pi-statusline/index.ts":
-    'export { default } from "../../vendor/pi-statusline/index.ts";\n',
+const shimTargets = {
+  "extensions/pi-rtk/index.ts": "vendor/pi-rtk/index.ts",
+  "extensions/pi-statusline/index.ts": "vendor/pi-statusline/index.ts",
   "extensions/rpiv-ask-user-question/index.ts":
-    'export { default } from "@juicesharp/rpiv-ask-user-question";\n',
-  "extensions/pi-cc-extensions/index.ts":
-    'export { default } from "pi-cc-extensions/extensions/index.ts";\n',
+    "node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
+  "extensions/pi-cc-extensions/index.ts": "node_modules/pi-cc-extensions/extensions/index.ts",
   "extensions/pi-dynamic-workflows/index.ts":
-    'export { default } from "@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts";\n',
-  "extensions/pi-mcp-adapter/index.ts":
-    'export { default } from "pi-mcp-adapter/index.ts";\n',
-  "extensions/pi-subagents/index.ts":
-    'export { default } from "@tintinweb/pi-subagents/src/index.ts";\n',
-  "extensions/pi-tasks/index.ts":
-    'export { default } from "@tintinweb/pi-tasks/src/index.ts";\n',
+    "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
+  "extensions/pi-mcp-adapter/index.ts": "node_modules/pi-mcp-adapter/index.ts",
+  "extensions/pi-subagents/index.ts": "node_modules/@tintinweb/pi-subagents/src/index.ts",
+  "extensions/pi-tasks/index.ts": "node_modules/@tintinweb/pi-tasks/src/index.ts",
 };
 const dependencyTargets = {
   "node_modules/@juicesharp/rpiv-ask-user-question/index.ts":
@@ -95,18 +92,25 @@ assert.deepEqual(sorted(Object.keys(pkg.dependencies)), sorted(expectedDependenc
 for (const [name, version] of Object.entries(pkg.dependencies)) {
   assert.match(version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, `${name} must use an exact version`);
 }
-assert.deepEqual(sorted(pkg.bundledDependencies), sorted(expectedDependencyNames));
+assert.deepEqual(sorted(pkg.bundleDependencies), sorted(expectedDependencyNames));
+assert.deepEqual(sorted(Object.keys(pkg.devDependencies)), expectedDevDependencyNames);
+assert.match(
+  pkg.devDependencies[smokePiName],
+  /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/,
+  `${smokePiName} must use an exact version`,
+);
 assert.deepEqual(pkg.peerDependencies, expectedPeers);
 for (const peer of Object.keys(expectedPeers)) {
   assert.deepEqual(pkg.peerDependenciesMeta?.[peer], { optional: true });
   assert.equal(Object.hasOwn(pkg.dependencies, peer), false, `${peer} must not be a direct dependency`);
-  assert.equal(pkg.bundledDependencies.includes(peer), false, `${peer} must not be explicitly bundled`);
+  assert.equal(pkg.bundleDependencies.includes(peer), false, `${peer} must not be explicitly bundled`);
 }
 assert.equal(Object.hasOwn(pkg.dependencies, "pi-subagents"), false);
 assert.equal(Object.hasOwn(pkg.dependencies, "pi-tasks"), false);
 
-for (const [path, expected] of Object.entries(expectedShims)) {
-  assert.equal(readText(path), expected, `${path} must remain a forwarding-only shim`);
+for (const [path, target] of Object.entries(shimTargets)) {
+  const expected = `export { default } from "../../${target}";\n`;
+  assert.equal(readText(path), expected, `${path} must forward to the exact bundled entry file`);
 }
 for (const dependency of [
   "@juicesharp/rpiv-ask-user-question",
@@ -129,7 +133,12 @@ for (const [entryPath, name] of Object.entries(dependencyTargets)) {
 
 assert.equal(lock.lockfileVersion, 3);
 assert.deepEqual(lock.packages[""].dependencies, pkg.dependencies);
+assert.deepEqual(lock.packages[""].devDependencies, pkg.devDependencies);
 assert.deepEqual(sorted(lock.packages[""].bundleDependencies), sorted(expectedDependencyNames));
+const smokePiLock = lock.packages[`node_modules/${smokePiName}`];
+assert.equal(smokePiLock.version, pkg.devDependencies[smokePiName]);
+assert.equal(smokePiLock.dev, true);
+assert.match(smokePiLock.integrity, /^sha512-/);
 const askName = "@juicesharp/rpiv-ask-user-question";
 const askVersion = pkg.dependencies[askName];
 const askLock = lock.packages[`node_modules/${askName}`];
@@ -169,5 +178,5 @@ assert.match(
 );
 
 console.log(
-  `package checks passed: 8 extensions, 3 skills, 2 themes, ${expectedDependencyNames.length} pinned dependencies, 2 local implementations`,
+  `package checks passed: 8 extensions, 3 skills, 2 themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
 );

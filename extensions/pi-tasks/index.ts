@@ -1,1 +1,1 @@
-export { default } from "@tintinweb/pi-tasks/src/index.ts";
+export { default } from "../../node_modules/@tintinweb/pi-tasks/src/index.ts";
