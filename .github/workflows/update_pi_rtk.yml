@@ -148,8 +148,8 @@ jobs:
           branch: auto-update/pi-rtk-${{ needs.generate.outputs.version }}
           delete-branch: true
           add-paths: vendor/pi-rtk
-          commit-message: "build(deps): update pi-rtk to ${{ needs.generate.outputs.version }}"
-          title: "build(deps): update pi-rtk to ${{ needs.generate.outputs.version }}"
+          commit-message: "chore(deps): update pi-rtk to ${{ needs.generate.outputs.version }}"
+          title: "chore(deps): update pi-rtk to ${{ needs.generate.outputs.version }}"
           body: |
             Regenerates the vendored Pi integration with RTK ${{ needs.generate.outputs.version }}.
 
