@@ -24,7 +24,7 @@
  */
 
 import type { Usage } from "@earendil-works/pi-ai";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { execFile } from "node:child_process";
 
@@ -120,12 +120,6 @@ interface Metrics {
 	output: number;
 }
 
-type UsageEntry = {
-	type: string;
-	message?: unknown;
-	usage?: Usage;
-};
-
 // pi's session is an append-only TREE (forking, rewind/retry, /tree navigation
 // spawn branches). getEntries() returns every entry across ALL branches in
 // append order; getBranch() only walks the current leaf's root->tip path. We
@@ -143,14 +137,15 @@ function addUsage(metrics: Metrics, usage: Usage): void {
 	metrics.output += usage.output ?? 0;
 }
 
-function collectMetrics(entries: ReadonlyArray<UsageEntry>): Metrics {
+function collectMetrics(entries: ReadonlyArray<SessionEntry>): Metrics {
 	const metrics: Metrics = { cost: 0, input: 0, cacheRead: 0, cacheWrite: 0, output: 0 };
 
 	for (const entry of entries) {
 		if (entry.type === "message") {
-			const message = entry.message as { role?: string; usage?: Usage } | undefined;
-			if (message?.role === "assistant" || message?.role === "toolResult") {
-				if (message.usage) addUsage(metrics, message.usage);
+			if (entry.message.role === "assistant") {
+				addUsage(metrics, entry.message.usage);
+			} else if (entry.message.role === "toolResult" && entry.message.usage) {
+				addUsage(metrics, entry.message.usage);
 			}
 		} else if ((entry.type === "compaction" || entry.type === "branch_summary") && entry.usage) {
 			addUsage(metrics, entry.usage);
@@ -162,8 +157,8 @@ function collectMetrics(entries: ReadonlyArray<UsageEntry>): Metrics {
 
 function renderRight(
 	metrics: Metrics,
-	pct: number,
-	contextTokens: number,
+	pct: number | null,
+	contextTokens: number | null,
 	limit: number,
 	model: string,
 	effort: string,
@@ -173,10 +168,14 @@ function renderRight(
 	// both of which are more directly tied to spend than cache-read input.
 	const nonCacheReadInput = metrics.input + metrics.cacheWrite;
 	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)} (${fmtTokens(nonCacheReadInput)}) ↓${fmtTokens(metrics.output)}${RESET}`;
+	const context =
+		pct === null || contextTokens === null
+			? `?% ?/${fmtTokens(limit)}`
+			: `${contextBar(pct)} ${num(Math.round(pct))}% ${fmtTokens(contextTokens)}/${fmtTokens(limit)}`;
 	const segs = [
 		`${TEAL}$${metrics.cost.toFixed(2)}${RESET}`,
 		tokens,
-		`${MAROON}${contextBar(pct)} ${num(Math.round(pct))}% ${fmtTokens(contextTokens)}/${fmtTokens(limit)}${RESET}`,
+		`${MAROON}${context}${RESET}`,
 		`${FLAMINGO}${model}${RESET}`,
 		`${FLAMINGO}${effort}${RESET}`,
 	];
@@ -215,8 +214,8 @@ export default function (pi: ExtensionAPI) {
 				render(width: number): string[] {
 					const metrics = collectMetrics(ctx.sessionManager.getEntries());
 					const usage = ctx.getContextUsage();
-					const pct = usage?.percent ?? 0;
-					const contextTokens = usage?.tokens ?? 0;
+					const pct = usage?.percent ?? null;
+					const contextTokens = usage?.tokens ?? null;
 					const limit = usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
 					const model = ctx.model?.name || ctx.model?.id || "";
 					const effort = pi.getThinkingLevel();
