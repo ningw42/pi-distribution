@@ -8,7 +8,7 @@
  * numbers from `ctx` (sessionManager / model / context usage) plus
  * `pi.getThinkingLevel()`. This file reproduces the same LOOK:
  *
- *   <starship: dir + git>            $cost  ↑all-in (non-cache-read) ↓out  ▰▰▱▱ pct%/limit  Model  effort
+ *   <starship: dir + git>            $cost  ↑all-in (non-cache-read) ↓out  ▰▰▱▱ pct% used/limit  Model  effort
  *   └────────── left ──────────┘     └──────────────── right group, flex-right ──────┘
  *
  * Colours are catppuccin-mocha (teal / maroon / flamingo), emitted as raw
@@ -160,7 +160,14 @@ function collectMetrics(entries: ReadonlyArray<UsageEntry>): Metrics {
 	return metrics;
 }
 
-function renderRight(metrics: Metrics, pct: number, limit: number, model: string, effort: string): string {
+function renderRight(
+	metrics: Metrics,
+	pct: number,
+	contextTokens: number,
+	limit: number,
+	model: string,
+	effort: string,
+): string {
 	const allInput = metrics.input + metrics.cacheRead + metrics.cacheWrite;
 	// This excludes only cache hits. It includes normal input and cache writes,
 	// both of which are more directly tied to spend than cache-read input.
@@ -169,7 +176,7 @@ function renderRight(metrics: Metrics, pct: number, limit: number, model: string
 	const segs = [
 		`${TEAL}$${metrics.cost.toFixed(2)}${RESET}`,
 		tokens,
-		`${MAROON}${contextBar(pct)} ${num(Math.round(pct))}%/${fmtTokens(limit)}${RESET}`,
+		`${MAROON}${contextBar(pct)} ${num(Math.round(pct))}% ${fmtTokens(contextTokens)}/${fmtTokens(limit)}${RESET}`,
 		`${FLAMINGO}${model}${RESET}`,
 		`${FLAMINGO}${effort}${RESET}`,
 	];
@@ -209,11 +216,12 @@ export default function (pi: ExtensionAPI) {
 					const metrics = collectMetrics(ctx.sessionManager.getEntries());
 					const usage = ctx.getContextUsage();
 					const pct = usage?.percent ?? 0;
+					const contextTokens = usage?.tokens ?? 0;
 					const limit = usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
 					const model = ctx.model?.name || ctx.model?.id || "";
 					const effort = pi.getThinkingLevel();
 
-					const right = renderRight(metrics, pct, limit, model, effort);
+					const right = renderRight(metrics, pct, contextTokens, limit, model, effort);
 					const gap = Math.max(1, width - visibleWidth(left) - visibleWidth(right));
 					return [truncateToWidth(left + " ".repeat(gap) + right, width)];
 				},
