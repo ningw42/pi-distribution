@@ -8,7 +8,7 @@
  * numbers from `ctx` (sessionManager / model / context usage) plus
  * `pi.getThinkingLevel()`. This file reproduces the same LOOK:
  *
- *   <starship: dir + git>            $cost  ↑in ↓out  ▰▰▱▱ pct%/limit  Model  effort
+ *   <starship: dir + git>            $cost  ↑all-in (non-cache-read) ↓out  ▰▰▱▱ pct%/limit  Model  effort
  *   └────────── left ──────────┘     └──────────────── right group, flex-right ──────┘
  *
  * Colours are catppuccin-mocha (teal / maroon / flamingo), emitted as raw
@@ -23,7 +23,7 @@
  * "$" figure tracks modelled spend, not a real bill.
  */
 
-import type { AssistantMessage } from "@earendil-works/pi-ai";
+import type { Usage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { execFile } from "node:child_process";
@@ -38,8 +38,9 @@ function fg(hex: string): string {
 	return `\x1b[38;2;${r};${g};${b}m`;
 }
 
-const TEAL = fg("#94E2D5"); // cost
-const MAROON = fg("#EBA0AC"); // tokens + context bar
+const TEAL = fg("#94E2D5"); // cumulative cost
+const SAPPHIRE = fg("#74C7EC"); // cumulative token usage
+const MAROON = fg("#EBA0AC"); // context bar
 const FLAMINGO = fg("#F2CDCD"); // model + effort
 const RESET = "\x1b[0m";
 
@@ -114,48 +115,65 @@ async function renderStarshipLeft(cwd: string): Promise<string> {
 interface Metrics {
 	cost: number;
 	input: number;
+	cacheRead: number;
+	cacheWrite: number;
 	output: number;
 }
 
-// Cost is cumulative across the whole session; tokens (↑/↓) are the LATEST
-// CALL — the one unit claude-code / copilot-cli can also show identically
-// (claude exposes only the last call; copilot reads last_call_*).
-//
+type UsageEntry = {
+	type: string;
+	message?: unknown;
+	usage?: Usage;
+};
+
 // pi's session is an append-only TREE (forking, rewind/retry, /tree navigation
 // spawn branches). getEntries() returns every entry across ALL branches in
 // append order; getBranch() only walks the current leaf's root->tip path. We
-// use getEntries() so:
-//   - cost sums ALL spend (an abandoned branch still burned tokens; getBranch()
-//     would under-report after a fork/rewind), matching pi's default footer.
-//   - ↑/↓ track the most recently appended assistant message = the latest call.
-// ↑ is cache-inclusive (input + cacheRead + cacheWrite) to match the other two.
+// use getEntries() so abandoned branches remain in the cumulative token/cost
+// accounting: their model calls still incurred usage.
+//
+// This matches Pi's built-in cumulative totals: assistant calls, tools that
+// report nested LLM usage, and compaction/branch-summary calls all contribute.
 // (The official custom-footer.ts example uses getBranch().)
-function collectMetrics(entries: ReadonlyArray<{ type: string; message?: unknown }>): Metrics {
-	let cost = 0;
-	let input = 0;
-	let output = 0;
-	for (const e of entries) {
-		if (e.type !== "message") continue;
-		const m = e.message as AssistantMessage;
-		if (!m || m.role !== "assistant") continue;
-		cost += m.usage.cost.total; // cumulative across the session
-		// Overwrite each iteration → ends on the last assistant message (the
-		// latest model call): cache-inclusive full prompt input, and its output.
-		input = m.usage.input + m.usage.cacheRead + m.usage.cacheWrite;
-		output = m.usage.output;
+function addUsage(metrics: Metrics, usage: Usage): void {
+	metrics.cost += usage.cost?.total ?? 0;
+	metrics.input += usage.input ?? 0;
+	metrics.cacheRead += usage.cacheRead ?? 0;
+	metrics.cacheWrite += usage.cacheWrite ?? 0;
+	metrics.output += usage.output ?? 0;
+}
+
+function collectMetrics(entries: ReadonlyArray<UsageEntry>): Metrics {
+	const metrics: Metrics = { cost: 0, input: 0, cacheRead: 0, cacheWrite: 0, output: 0 };
+
+	for (const entry of entries) {
+		if (entry.type === "message") {
+			const message = entry.message as { role?: string; usage?: Usage } | undefined;
+			if (message?.role === "assistant" || message?.role === "toolResult") {
+				if (message.usage) addUsage(metrics, message.usage);
+			}
+		} else if ((entry.type === "compaction" || entry.type === "branch_summary") && entry.usage) {
+			addUsage(metrics, entry.usage);
+		}
 	}
-	return { cost, input, output };
+
+	return metrics;
 }
 
 function renderRight(metrics: Metrics, pct: number, limit: number, model: string, effort: string): string {
-	const segs: [string, string][] = [
-		[TEAL, `$${metrics.cost.toFixed(2)}`],
-		[MAROON, `↑${fmtTokens(metrics.input)} ↓${fmtTokens(metrics.output)}`],
-		[MAROON, `${contextBar(pct)} ${num(Math.round(pct))}%/${fmtTokens(limit)}`],
-		[FLAMINGO, model],
-		[FLAMINGO, effort],
+	const allInput = metrics.input + metrics.cacheRead + metrics.cacheWrite;
+	// This excludes only cache hits. It includes normal input and cache writes,
+	// both of which are more directly tied to spend than cache-read input.
+	const nonCacheReadInput = metrics.input + metrics.cacheWrite;
+	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)} (${fmtTokens(nonCacheReadInput)}) ↓${fmtTokens(metrics.output)}${RESET}`;
+	const segs = [
+		`${TEAL}$${metrics.cost.toFixed(2)}${RESET}`,
+		tokens,
+		`${MAROON}${contextBar(pct)} ${num(Math.round(pct))}%/${fmtTokens(limit)}${RESET}`,
+		`${FLAMINGO}${model}${RESET}`,
+		`${FLAMINGO}${effort}${RESET}`,
 	];
-	return segs.map(([color, text]) => `${color}${text}${RESET}`).join(" ");
+	return segs.join(" ");
 }
 
 // --- extension ---------------------------------------------------------------
