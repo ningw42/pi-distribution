@@ -27,7 +27,7 @@
     "@tintinweb/pi-subagents": "0.14.3",
     "@tintinweb/pi-tasks": "0.7.2",
     "pi-cc-extensions": "0.8.51",
-    "pi-mcp-adapter": "2.21.1",
+    "pi-mcp-adapter": "2.21.2",
     "pi-theme-picker": "0.1.2"
   },
   "devDependencies": {
