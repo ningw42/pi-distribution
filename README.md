@@ -114,14 +114,14 @@ The smoke test:
 
 1. validates the manifest, shims, pins, RTK hash, and statusline portability;
 2. creates the npm tarball and checks its contents;
-3. installs that tarball into a temporary clean prefix;
+3. extracts that tarball into a temporary clean directory without contacting npm;
 4. loads each forwarding shim independently with Pi RPC mode;
 5. loads the aggregate and checks representative extension commands;
 6. verifies the declared skill commands and their provenance;
 7. verifies every file under the declared skill and theme resources and the absence of prompt templates;
-8. fails on extension errors, missing packed resources, or installed-manifest drift.
+8. fails on extension errors, missing packed resources, or extracted-manifest drift.
 
-Set `KEEP_SMOKE_TMP=1` to retain its temporary package and logs for inspection. Set `SMOKE_PACK_DESTINATION` to retain the exact tarball that passed the offline installation and Pi smoke checks; the release workflow uses this on native Windows x64 and ARM64 runners.
+Set `KEEP_SMOKE_TMP=1` to retain its temporary package and logs for inspection. Set `SMOKE_PACK_DESTINATION` to retain the exact tarball that passed registry-free extraction and Pi smoke checks; the release workflow uses this on native Windows x64 and ARM64 runners.
 
 ## Repository automation
 

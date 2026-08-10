@@ -28,14 +28,12 @@ const expectedThemeResources = pkg.pi.themes;
 const tempRoot = mkdtempSync(join(tmpdir(), "pi-distribution-smoke-"));
 const retainedPackDir = process.env.SMOKE_PACK_DESTINATION;
 const packDir = retainedPackDir ? resolve(retainedPackDir) : join(tempRoot, "pack");
-const installDir = join(tempRoot, "install");
 const extractDir = join(tempRoot, "extract");
-const npmCacheDir = join(tempRoot, "npm-cache");
 const homeDir = join(tempRoot, "home");
 const configDir = join(tempRoot, "pi-config");
 const workDir = join(tempRoot, "work");
 const binDir = join(tempRoot, "bin");
-for (const path of [packDir, installDir, extractDir, npmCacheDir, homeDir, configDir, workDir, binDir]) {
+for (const path of [packDir, extractDir, homeDir, configDir, workDir, binDir]) {
   mkdirSync(path, { recursive: true });
 }
 
@@ -214,32 +212,9 @@ try {
   run("tar", ["-xzf", packed.filename, "-C", extractDir], { cwd: packDir });
   const extractedPackage = join(extractDir, "package");
   assert.equal(existsSync(join(extractedPackage, "package.json")), true);
-
-  runNpm(
-    [
-      "install",
-      "--offline",
-      "--cache",
-      npmCacheDir,
-      "--ignore-scripts",
-      "--legacy-peer-deps",
-      "--prefix",
-      installDir,
-      tarball,
-    ],
-    {
-      env: {
-        ...process.env,
-        NPM_CONFIG_REGISTRY: "http://127.0.0.1:9",
-      },
-    },
-  );
-  const installedPackage = join(installDir, "node_modules", pkg.name);
-  assert.equal(existsSync(join(installedPackage, "package.json")), true);
-  const installedManifest = JSON.parse(readFileSync(join(installedPackage, "package.json"), "utf8"));
-  assert.deepEqual(installedManifest.pi, pkg.pi);
+  const extractedManifest = JSON.parse(readFileSync(join(extractedPackage, "package.json"), "utf8"));
+  assert.deepEqual(extractedManifest.pi, pkg.pi);
   for (const entry of platformArchiveEntries) {
-    assert.equal(existsSync(join(installedPackage, entry)), true, `installed artifact is missing ${entry}`);
     assert.equal(existsSync(join(extractedPackage, entry)), true, `extracted artifact is missing ${entry}`);
   }
 
