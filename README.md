@@ -35,7 +35,7 @@ The root manifest names the extensions and skills through exact `node_modules/` 
 
 ## Install
 
-The package is currently intended to be installed from Git or a local checkout rather than the npm registry.
+The package can be installed from Git, a local checkout, or an extracted GitHub Release artifact. It is not published to the npm registry.
 
 ```bash
 # Local checkout
@@ -46,6 +46,27 @@ pi install git:github.com/ningw42/pi-distribution@<revision>
 ```
 
 Pi runs `npm install` for Git packages. This repository commits `package-lock.json`, uses exact dependency versions, and configures npm to leave Pi-provided peer packages unresolved so Pi supplies its own runtime modules. Installing the aggregate makes all declared extensions, skills, and dependency-owned themes available.
+
+### Offline Windows release artifact
+
+Each GitHub Release includes fully packed Windows x64 and ARM64 artifacts plus SHA-256 checksum files. Select the asset matching the target machine, transfer both files to it, and use PowerShell to verify and extract the package:
+
+```powershell
+$tag = "v26.08.4"       # Release to install
+$architecture = "x64"   # Use "arm64" on Windows ARM64
+$asset = "pi-distribution-$tag-windows-$architecture.tgz"
+
+$expected = (Get-Content "$asset.sha256").Split()[0].ToLowerInvariant()
+$actual = (Get-FileHash $asset -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actual -ne $expected) { throw "Checksum mismatch for $asset" }
+
+$destination = Join-Path $HOME "pi-packages\pi-distribution-$tag"
+New-Item -ItemType Directory -Path $destination -Force | Out-Null
+tar -xzf $asset -C $destination --strip-components=1
+pi install $destination
+```
+
+The extracted directory already contains the package's npm runtime dependency closure, so installation does not contact the npm registry. Pi itself and the external `rtk` and `starship` runtime prerequisites are not included.
 
 ## Runtime prerequisites
 
@@ -100,7 +121,7 @@ The smoke test:
 7. verifies every file under the declared skill and theme resources and the absence of prompt templates;
 8. fails on extension errors, missing packed resources, or installed-manifest drift.
 
-Set `KEEP_SMOKE_TMP=1` to retain its temporary package and logs for inspection.
+Set `KEEP_SMOKE_TMP=1` to retain its temporary package and logs for inspection. Set `SMOKE_PACK_DESTINATION` to retain the exact tarball that passed the offline installation and Pi smoke checks; the release workflow uses this on native Windows x64 and ARM64 runners.
 
 ## Repository automation
 

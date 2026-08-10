@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -26,13 +26,18 @@ delete smokeProcessEnv.PI_PACKAGE_DIR;
 const expectedSkillResources = pkg.pi.skills;
 const expectedThemeResources = pkg.pi.themes;
 const tempRoot = mkdtempSync(join(tmpdir(), "pi-distribution-smoke-"));
-const packDir = join(tempRoot, "pack");
+const retainedPackDir = process.env.SMOKE_PACK_DESTINATION;
+const packDir = retainedPackDir ? resolve(retainedPackDir) : join(tempRoot, "pack");
 const installDir = join(tempRoot, "install");
+const extractDir = join(tempRoot, "extract");
+const npmCacheDir = join(tempRoot, "npm-cache");
 const homeDir = join(tempRoot, "home");
 const configDir = join(tempRoot, "pi-config");
 const workDir = join(tempRoot, "work");
 const binDir = join(tempRoot, "bin");
-for (const path of [packDir, installDir, homeDir, configDir, workDir, binDir]) mkdirSync(path, { recursive: true });
+for (const path of [packDir, installDir, extractDir, npmCacheDir, homeDir, configDir, workDir, binDir]) {
+  mkdirSync(path, { recursive: true });
+}
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -57,11 +62,24 @@ function run(command, args, options = {}) {
   return result;
 }
 
-function writeExecutable(name, body) {
-  const path = join(binDir, name);
-  writeFileSync(path, body);
-  chmodSync(path, 0o755);
+function runNpm(args, options = {}) {
+  if (process.env.npm_execpath) {
+    return run(process.execPath, [process.env.npm_execpath, ...args], options);
+  }
+  return run(process.platform === "win32" ? "npm.cmd" : "npm", args, {
+    shell: process.platform === "win32",
+    ...options,
+  });
 }
+
+function writeExecutable(name, unixBody, windowsBody) {
+  const isWindows = process.platform === "win32";
+  const path = join(binDir, `${name}${isWindows ? ".cmd" : ""}`);
+  writeFileSync(path, isWindows ? windowsBody : unixBody);
+  if (!isWindows) chmodSync(path, 0o755);
+}
+
+const toArchivePath = (path) => path.replaceAll("\\", "/").replace(/^\.\//, "");
 
 function collectResourceFiles(path) {
   const absolutePath = join(root, path);
@@ -85,7 +103,7 @@ function rpcSmoke(source) {
         HOME: homeDir,
         XDG_CONFIG_HOME: join(homeDir, ".config"),
         PI_CODING_AGENT_DIR: configDir,
-        PATH: `${binDir}:${smokeProcessEnv.PATH ?? ""}`,
+        PATH: `${binDir}${delimiter}${smokeProcessEnv.PATH ?? ""}`,
         NO_COLOR: "1",
       },
     },
@@ -117,54 +135,74 @@ try {
   writeExecutable(
     "rtk",
     `#!/bin/sh\nif [ "$1" = "--version" ]; then\n  echo "rtk ${rtkMetadata.version}"\n  exit 0\nfi\nif [ "$1" = "rewrite" ]; then\n  exit 1\nfi\nexit 1\n`,
+    `@echo off\r\nif "%~1"=="--version" (\r\n  echo rtk ${rtkMetadata.version}\r\n  exit /b 0\r\n)\r\nif "%~1"=="rewrite" exit /b 1\r\nexit /b 1\r\n`,
   );
-  writeExecutable("starship", "#!/bin/sh\nexit 0\n");
+  writeExecutable("starship", "#!/bin/sh\nexit 0\n", "@echo off\r\nexit /b 0\r\n");
 
-  const packResult = run("npm", ["pack", "--json", "--pack-destination", packDir]);
+  const packResult = runNpm(["pack", "--json", "--pack-destination", packDir]);
   const packed = JSON.parse(packResult.stdout)[0];
   const tarball = join(packDir, packed.filename);
   assert.equal(existsSync(tarball), true);
 
-  const archiveEntries = run("tar", ["-tzf", tarball]).stdout.split("\n");
+  const archiveEntries = packed.files.map(({ path }) => toArchivePath(path));
+  const platformKey = `${process.platform}-${process.arch}`;
+  const platformArchiveEntries = {
+    "win32-x64": [
+      "node_modules/@napi-rs/keyring-win32-x64-msvc/package.json",
+      "node_modules/recheck-windows-x64/package.json",
+    ],
+    "win32-arm64": [
+      "node_modules/@napi-rs/keyring-win32-arm64-msvc/package.json",
+      "node_modules/recheck-jar/package.json",
+    ],
+  }[platformKey] ?? [];
+  const forbiddenPlatformPrefixes = {
+    "win32-x64": ["node_modules/@napi-rs/keyring-win32-arm64-msvc/"],
+    "win32-arm64": [
+      "node_modules/@napi-rs/keyring-win32-x64-msvc/",
+      "node_modules/recheck-windows-x64/",
+    ],
+  }[platformKey] ?? [];
   const requiredArchiveEntries = [
-    "package/package.json",
-    "package/extensions/pi-rtk/index.ts",
-    "package/extensions/pi-statusline/index.ts",
-    "package/extensions/rpiv-ask-user-question/index.ts",
-    "package/extensions/pi-cc-extensions/index.ts",
-    "package/extensions/pi-dynamic-workflows/index.ts",
-    "package/extensions/pi-mcp-adapter/index.ts",
-    "package/extensions/pi-theme-picker/index.ts",
-    "package/extensions/pi-subagents/index.ts",
-    "package/extensions/pi-tasks/index.ts",
-    "package/vendor/pi-rtk/index.ts",
-    "package/vendor/pi-rtk/LICENSE",
-    "package/vendor/pi-rtk/metadata.json",
-    "package/vendor/pi-statusline/index.ts",
-    "package/node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
-    "package/node_modules/@juicesharp/rpiv-ask-user-question/LICENSE",
-    "package/node_modules/pi-cc-extensions/extensions/index.ts",
-    "package/node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
-    "package/node_modules/@quintinshaw/pi-dynamic-workflows/package.json",
-    "package/node_modules/@quintinshaw/pi-dynamic-workflows/LICENSE",
-    "package/node_modules/pi-mcp-adapter/index.ts",
-    "package/node_modules/pi-theme-picker/index.ts",
-    "package/node_modules/pi-theme-picker/LICENSE",
-    "package/node_modules/@tintinweb/pi-subagents/src/index.ts",
-    "package/node_modules/@tintinweb/pi-tasks/src/index.ts",
-    ...[...expectedSkillFiles, ...expectedThemeFiles].map(
-      (path) => `package/${path.replace(/^\.\//, "")}`,
-    ),
+    "package.json",
+    "extensions/pi-rtk/index.ts",
+    "extensions/pi-statusline/index.ts",
+    "extensions/rpiv-ask-user-question/index.ts",
+    "extensions/pi-cc-extensions/index.ts",
+    "extensions/pi-dynamic-workflows/index.ts",
+    "extensions/pi-mcp-adapter/index.ts",
+    "extensions/pi-theme-picker/index.ts",
+    "extensions/pi-subagents/index.ts",
+    "extensions/pi-tasks/index.ts",
+    "vendor/pi-rtk/index.ts",
+    "vendor/pi-rtk/LICENSE",
+    "vendor/pi-rtk/metadata.json",
+    "vendor/pi-statusline/index.ts",
+    "node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
+    "node_modules/@juicesharp/rpiv-ask-user-question/LICENSE",
+    "node_modules/pi-cc-extensions/extensions/index.ts",
+    "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
+    "node_modules/@quintinshaw/pi-dynamic-workflows/package.json",
+    "node_modules/@quintinshaw/pi-dynamic-workflows/LICENSE",
+    "node_modules/pi-mcp-adapter/index.ts",
+    "node_modules/pi-theme-picker/index.ts",
+    "node_modules/pi-theme-picker/LICENSE",
+    "node_modules/@tintinweb/pi-subagents/src/index.ts",
+    "node_modules/@tintinweb/pi-tasks/src/index.ts",
+    ...platformArchiveEntries,
+    ...[...expectedSkillFiles, ...expectedThemeFiles].map(toArchivePath),
   ];
+  assert.ok(platformArchiveEntries.length > 0 || process.platform !== "win32", `unsupported Windows artifact target: ${platformKey}`);
   for (const entry of requiredArchiveEntries) {
     assert.equal(archiveEntries.includes(entry), true, `packed artifact is missing ${entry}`);
   }
   for (const forbiddenPrefix of [
-    "package/.pi/",
-    "package/skills/",
-    "package/themes/",
-    "package/prompts/",
-    "package/node_modules/@earendil-works/pi-coding-agent/",
+    ".pi/",
+    "skills/",
+    "themes/",
+    "prompts/",
+    "node_modules/@earendil-works/pi-coding-agent/",
+    ...forbiddenPlatformPrefixes,
   ]) {
     assert.equal(
       archiveEntries.some((entry) => entry.startsWith(forbiddenPrefix)),
@@ -173,19 +211,65 @@ try {
     );
   }
 
-  run("npm", ["install", "--ignore-scripts", "--legacy-peer-deps", "--prefix", installDir, tarball]);
+  run("tar", ["-xzf", tarball, "-C", extractDir]);
+  const extractedPackage = join(extractDir, "package");
+  assert.equal(existsSync(join(extractedPackage, "package.json")), true);
+
+  runNpm(
+    [
+      "install",
+      "--offline",
+      "--cache",
+      npmCacheDir,
+      "--ignore-scripts",
+      "--legacy-peer-deps",
+      "--prefix",
+      installDir,
+      tarball,
+    ],
+    {
+      env: {
+        ...process.env,
+        NPM_CONFIG_REGISTRY: "http://127.0.0.1:9",
+      },
+    },
+  );
   const installedPackage = join(installDir, "node_modules", pkg.name);
   assert.equal(existsSync(join(installedPackage, "package.json")), true);
   const installedManifest = JSON.parse(readFileSync(join(installedPackage, "package.json"), "utf8"));
   assert.deepEqual(installedManifest.pi, pkg.pi);
+  for (const entry of platformArchiveEntries) {
+    assert.equal(existsSync(join(installedPackage, entry)), true, `installed artifact is missing ${entry}`);
+    assert.equal(existsSync(join(extractedPackage, entry)), true, `extracted artifact is missing ${entry}`);
+  }
+
+  run(
+    process.execPath,
+    [
+      "-e",
+      `const assert = require("node:assert/strict");\n` +
+        `const keyring = require("./node_modules/@napi-rs/keyring");\n` +
+        `assert.equal(typeof keyring.Entry, "function");\n` +
+        `const { checkSync } = require("./node_modules/recheck");\n` +
+        `assert.equal(checkSync("a+", "").status, "safe");\n`,
+    ],
+    {
+      cwd: extractedPackage,
+      timeout: 60_000,
+      env: {
+        ...process.env,
+        ...(platformKey === "win32-arm64" ? { RECHECK_SYNC_BACKEND: "pure" } : {}),
+      },
+    },
+  );
 
   for (const extension of pkg.pi.extensions) {
-    const source = join(installedPackage, extension);
+    const source = join(extractedPackage, extension);
     rpcSmoke(source);
     console.log(`loaded ${basename(dirname(source))}`);
   }
 
-  const commands = rpcSmoke(installedPackage);
+  const commands = rpcSmoke(extractedPackage);
   const commandNames = new Set(commands.filter((command) => command.source === "extension").map((command) => command.name));
   for (const expectedCommand of ["agents", "tasks", "mcp", "theme", "workflows"]) {
     assert.equal(commandNames.has(expectedCommand), true, `aggregate is missing /${expectedCommand}`);
@@ -194,7 +278,7 @@ try {
     [
       "skill:workflow-authoring",
       join(
-        installedPackage,
+        extractedPackage,
         "node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring/SKILL.md",
       ),
       "cli",
@@ -204,7 +288,7 @@ try {
     [
       "skill:workflow-patterns",
       join(
-        installedPackage,
+        extractedPackage,
         "node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns/SKILL.md",
       ),
       "cli",
@@ -213,7 +297,7 @@ try {
     ],
     [
       "skill:mcp-scripting",
-      join(installedPackage, "node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md"),
+      join(extractedPackage, "node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md"),
       "cli",
       "temporary",
       "top-level",

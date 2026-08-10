@@ -118,7 +118,7 @@ Then verify:
 3. The PR changes only files under `vendor/pi-rtk/`.
 4. CI passes and a human reviews and merges the PR.
 5. `tag_on_auto_update_merge.yml` creates the next `vYY.MM.N` annotated tag.
-6. `build_and_publish_release.yml` publishes the corresponding GitHub Release.
+6. `build_and_publish_release.yml` smoke-tests native Windows x64 and ARM64 packages, then publishes the corresponding GitHub Release with both `.tgz` assets and SHA-256 checksum files.
 
 A no-change updater run is also successful; it simply opens no PR.
 
@@ -143,7 +143,7 @@ git tag -a v26.08.0 <commit> -m "pi-distribution v26.08.0"
 git push origin v26.08.0
 ```
 
-The tag enters the same `build_and_publish_release.yml` publisher as an automatic tag. The tag must match `vYY.MM.N`, and the tagged package must pass the release workflow's checks.
+The tag enters the same `build_and_publish_release.yml` publisher as an automatic tag. The tag must match `vYY.MM.N`, and the tagged package must pass the release workflow's Ubuntu validation plus native Windows x64 and ARM64 packed-artifact smoke tests.
 
 ## Kura bootstrap
 

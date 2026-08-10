@@ -31,12 +31,105 @@ jobs:
       - name: Validate tagged package
         uses: ./.github/actions/validate-package
 
-  release:
+  package:
     needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x64
+            runner: windows-latest
+          - architecture: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          architecture: ${{ matrix.architecture }}
+          cache: npm
+
+      - name: Use the repository npm version
+        shell: pwsh
+        run: npm install --global npm@11.16.0
+
+      - name: Install package dependencies
+        shell: pwsh
+        run: npm ci --ignore-scripts
+
+      - name: Build and smoke-test offline artifact
+        env:
+          SMOKE_PACK_DESTINATION: ${{ runner.temp }}/pi-distribution-pack
+        shell: pwsh
+        run: npm run smoke
+
+      - name: Name and checksum tested artifact
+        id: artifact
+        env:
+          ARCHITECTURE: ${{ matrix.architecture }}
+          TAG: ${{ github.ref_name }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $packDirectory = Join-Path $env:RUNNER_TEMP "pi-distribution-pack"
+          $tarballs = @(Get-ChildItem -Path $packDirectory -Filter "*.tgz" -File)
+          if ($tarballs.Count -ne 1) {
+            throw "Expected one tested tarball in $packDirectory, found $($tarballs.Count)."
+          }
+
+          $assetName = "pi-distribution-$env:TAG-windows-$env:ARCHITECTURE.tgz"
+          $assetPath = Join-Path $packDirectory $assetName
+          Move-Item -Path $tarballs[0].FullName -Destination $assetPath
+
+          $checksum = (Get-FileHash -Path $assetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          $checksumPath = "$assetPath.sha256"
+          Set-Content -Path $checksumPath -Value "$checksum  $assetName" -Encoding ascii -NoNewline
+          "asset_directory=$packDirectory" >> $env:GITHUB_OUTPUT
+
+      - name: Preserve tested release asset
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: release-windows-${{ matrix.architecture }}
+          path: ${{ steps.artifact.outputs.asset_directory }}/*
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    needs:
+      - validate
+      - package
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Download tested release assets
+        uses: actions/download-artifact@v8.0.1
+        with:
+          pattern: release-windows-*
+          path: dist
+          merge-multiple: true
+
+      - name: Validate release assets
+        env:
+          TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for architecture in x64 arm64; do
+            test -s "dist/pi-distribution-$TAG-windows-$architecture.tgz"
+            test -s "dist/pi-distribution-$TAG-windows-$architecture.tgz.sha256"
+            (cd dist && sha256sum --check "pi-distribution-$TAG-windows-$architecture.tgz.sha256")
+          done
+
       - name: Create GitHub Release if absent
         env:
           GH_TOKEN: ${{ github.token }}
@@ -69,3 +162,19 @@ jobs:
             '.tag_name == $tag and .draft == false and .prerelease == false' \
             <<< "$release" >/dev/null
           echo "GitHub Release $TAG was created concurrently."
+
+      - name: Upload tested release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" \
+            dist/pi-distribution-"$TAG"-windows-x64.tgz \
+            dist/pi-distribution-"$TAG"-windows-x64.tgz.sha256 \
+            dist/pi-distribution-"$TAG"-windows-arm64.tgz \
+            dist/pi-distribution-"$TAG"-windows-arm64.tgz.sha256 \
+            --clobber \
+            --repo "$REPOSITORY"
