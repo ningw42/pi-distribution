@@ -211,7 +211,7 @@ try {
     );
   }
 
-  run("tar", ["-xzf", tarball, "-C", extractDir]);
+  run("tar", ["-xzf", packed.filename, "-C", extractDir], { cwd: packDir });
   const extractedPackage = join(extractDir, "package");
   assert.equal(existsSync(join(extractedPackage, "package.json")), true);
 
