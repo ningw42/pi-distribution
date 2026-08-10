@@ -12,6 +12,12 @@ const sorted = (values) => [...values].sort();
 const pkg = readJson("package.json");
 const lock = readJson("package-lock.json");
 
+assert.equal(
+  readText(".gitattributes"),
+  "* text=auto eol=lf\n",
+  "the repository must preserve LF package sources on Windows checkouts",
+);
+
 const expectedExtensions = [
   "./extensions/pi-rtk/index.ts",
   "./extensions/pi-statusline/index.ts",
