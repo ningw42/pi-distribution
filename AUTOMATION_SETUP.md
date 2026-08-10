@@ -87,11 +87,11 @@ Open <https://github.com/ningw42/pi-distribution/settings/rules>.
 Create a branch ruleset targeting `master` that:
 
 - requires changes to arrive through pull requests;
-- requires the CI `test` job to pass;
+- requires the CI `test-linux-x64`, `test-windows-x64`, and `test-windows-arm64` jobs to pass;
 - blocks force pushes;
 - blocks branch deletion.
 
-The `test` status check may not appear in the selector until `ci.yml` has run once. Add it after the first run if necessary.
+The status checks may not appear in the selector until the corresponding `ci.yml` jobs have run once. Add them after the first cross-platform run if necessary.
 
 ### Release tags
 

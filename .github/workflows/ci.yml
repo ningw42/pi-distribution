@@ -17,7 +17,21 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: test-${{ matrix.os }}-${{ matrix.architecture }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            architecture: x64
+            runner: ubuntu-latest
+          - os: windows
+            architecture: x64
+            runner: windows-latest
+          - os: windows
+            architecture: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
