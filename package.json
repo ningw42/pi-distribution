@@ -26,8 +26,8 @@
     "@quintinshaw/pi-dynamic-workflows": "3.5.1",
     "@tintinweb/pi-subagents": "0.15.0",
     "@tintinweb/pi-tasks": "0.7.2",
-    "pi-cc-extensions": "0.8.53",
-    "pi-mcp-adapter": "2.21.2",
+    "pi-cc-extensions": "0.8.54",
+    "pi-mcp-adapter": "2.23.0",
     "pi-theme-picker": "0.1.2"
   },
   "devDependencies": {
