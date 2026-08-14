@@ -66,6 +66,10 @@ jobs:
         shell: pwsh
         run: npm ci --ignore-scripts
 
+      - name: Install smoke-test Pi runtime
+        shell: pwsh
+        run: npm --prefix tests/smoke-runtime ci --ignore-scripts
+
       - name: Build and smoke-test offline artifact
         env:
           SMOKE_PACK_DESTINATION: ${{ runner.temp }}/pi-distribution-pack

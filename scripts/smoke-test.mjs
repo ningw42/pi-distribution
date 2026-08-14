@@ -18,7 +18,16 @@ import { fileURLToPath } from "node:url";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const rtkMetadata = JSON.parse(readFileSync(join(root, "vendor/pi-rtk/metadata.json"), "utf8"));
-const piPackageDir = join(root, "node_modules", "@earendil-works", "pi-coding-agent");
+const smokeRuntimeRoot = join(root, "tests", "smoke-runtime");
+const smokeRuntimePackage = JSON.parse(
+  readFileSync(join(smokeRuntimeRoot, "package.json"), "utf8"),
+);
+const piPackageDir = join(
+  smokeRuntimeRoot,
+  "node_modules",
+  "@earendil-works",
+  "pi-coding-agent",
+);
 const piPackage = JSON.parse(readFileSync(join(piPackageDir, "package.json"), "utf8"));
 const piCli = join(piPackageDir, piPackage.bin.pi);
 const smokeProcessEnv = { ...process.env };
@@ -122,8 +131,8 @@ function rpcSmoke(source) {
 try {
   assert.equal(
     piPackage.version,
-    pkg.devDependencies["@earendil-works/pi-coding-agent"],
-    "the smoke test must use the lockfile-controlled Pi development dependency",
+    smokeRuntimePackage.devDependencies["@earendil-works/pi-coding-agent"],
+    "the smoke test must use the independently locked Pi development dependency",
   );
   assert.equal(existsSync(piCli), true, `missing locked Pi CLI: ${piCli}`);
   console.log(`using locked Pi ${piPackage.version}`);

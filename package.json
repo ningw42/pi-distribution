@@ -30,9 +30,6 @@
     "pi-mcp-adapter": "2.25.0",
     "pi-theme-picker": "0.1.2"
   },
-  "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.84.2"
-  },
   "bundleDependencies": [
     "@quintinshaw/pi-dynamic-workflows",
     "@tintinweb/pi-subagents",

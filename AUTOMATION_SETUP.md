@@ -128,8 +128,8 @@ After installing the App, inspect its repository in the Mend Renovate developer 
 
 - uses a `renovate/npm-*` branch;
 - carries `auto-release:npm`;
-- changes only `package.json` and `package-lock.json`;
-- updates one or more direct dependencies in the grouped PR;
+- changes only the root `package.json`/`package-lock.json` pair, the `tests/smoke-runtime` manifest/lock pair, or both pairs;
+- updates one or more direct production or smoke-runtime dependencies in the grouped PR;
 - does not enable automerge.
 
 After human review and merge, the same automatic tag and release sequence should run.
