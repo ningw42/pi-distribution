@@ -11,6 +11,8 @@ const sorted = (values) => [...values].sort();
 
 const pkg = readJson("package.json");
 const lock = readJson("package-lock.json");
+const smokeRuntimePackage = readJson("tests/smoke-runtime/package.json");
+const smokeRuntimeLock = readJson("tests/smoke-runtime/package-lock.json");
 
 assert.equal(
   readText(".gitattributes"),
@@ -45,7 +47,7 @@ const expectedDependencyNames = [
   "pi-theme-picker",
 ];
 const smokePiName = "@earendil-works/pi-coding-agent";
-const expectedDevDependencyNames = [smokePiName];
+const expectedRootDevDependencyNames = [];
 const expectedPeers = {
   "@earendil-works/pi-ai": "*",
   "@earendil-works/pi-coding-agent": "*",
@@ -114,11 +116,10 @@ for (const [name, version] of Object.entries(pkg.dependencies)) {
   assert.match(version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, `${name} must use an exact version`);
 }
 assert.deepEqual(sorted(pkg.bundleDependencies), sorted(expectedDependencyNames));
-assert.deepEqual(sorted(Object.keys(pkg.devDependencies)), expectedDevDependencyNames);
-assert.match(
-  pkg.devDependencies[smokePiName],
-  /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/,
-  `${smokePiName} must use an exact version`,
+assert.deepEqual(
+  sorted(Object.keys(pkg.devDependencies ?? {})),
+  expectedRootDevDependencyNames,
+  "the production package must not carry test-only dependencies",
 );
 assert.deepEqual(pkg.peerDependencies, expectedPeers);
 for (const peer of Object.keys(expectedPeers)) {
@@ -155,10 +156,34 @@ for (const [entryPath, name] of Object.entries(dependencyTargets)) {
 
 assert.equal(lock.lockfileVersion, 3);
 assert.deepEqual(lock.packages[""].dependencies, pkg.dependencies);
-assert.deepEqual(lock.packages[""].devDependencies, pkg.devDependencies);
+assert.deepEqual(lock.packages[""].devDependencies ?? {}, pkg.devDependencies ?? {});
 assert.deepEqual(sorted(lock.packages[""].bundleDependencies), sorted(expectedDependencyNames));
-const smokePiLock = lock.packages[`node_modules/${smokePiName}`];
-assert.equal(smokePiLock.version, pkg.devDependencies[smokePiName]);
+assert.equal(
+  Object.hasOwn(lock.packages, `node_modules/${smokePiName}`),
+  false,
+  "the production lock must not include the smoke-test Pi runtime",
+);
+for (const [path, entry] of Object.entries(lock.packages)) {
+  if (entry.resolved?.startsWith("https://registry.npmjs.org/")) {
+    assert.match(entry.integrity, /^sha512-/, `${path} must declare registry integrity`);
+  }
+}
+
+assert.equal(smokeRuntimePackage.private, true);
+assert.deepEqual(smokeRuntimePackage.dependencies ?? {}, {});
+assert.deepEqual(Object.keys(smokeRuntimePackage.devDependencies ?? {}), [smokePiName]);
+assert.match(
+  smokeRuntimePackage.devDependencies[smokePiName],
+  /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/,
+  `${smokePiName} must use an exact smoke-test version`,
+);
+assert.equal(smokeRuntimeLock.lockfileVersion, 3);
+assert.deepEqual(
+  smokeRuntimeLock.packages[""].devDependencies,
+  smokeRuntimePackage.devDependencies,
+);
+const smokePiLock = smokeRuntimeLock.packages[`node_modules/${smokePiName}`];
+assert.equal(smokePiLock.version, smokeRuntimePackage.devDependencies[smokePiName]);
 assert.equal(smokePiLock.dev, true);
 assert.match(smokePiLock.integrity, /^sha512-/);
 const askName = "@juicesharp/rpiv-ask-user-question";

@@ -18,6 +18,10 @@ runs:
       shell: bash
       run: npm ci --ignore-scripts
 
+    - name: Install smoke-test Pi runtime
+      shell: bash
+      run: npm --prefix tests/smoke-runtime ci --ignore-scripts
+
     - name: Run package checks
       shell: bash
       run: npm test

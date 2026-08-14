@@ -95,10 +95,11 @@ The themes are available after installation, but installation does not select on
 
 ## Development and verification
 
-Install the exact lockfile closure and run the static checks:
+Install the production package closure and the independently locked Pi smoke runtime, then run the static checks:
 
 ```bash
 npm ci --ignore-scripts
+npm --prefix tests/smoke-runtime ci --ignore-scripts
 npm test
 ```
 
@@ -107,6 +108,8 @@ Run the packed-artifact and real-Pi smoke test:
 ```bash
 npm run smoke
 ```
+
+The root lock contains only the production package closure consumed by installers. The exact Pi version used for compatibility testing lives under `tests/smoke-runtime`, so Pi updates cannot add test-only packages to the production closure.
 
 The smoke test invokes the exact npm Pi development dependency from the lockfile. It does not use an ambient `pi` executable or `PI_PACKAGE_DIR`, so local and CI runs exercise the same Pi runtime.
 
@@ -139,10 +142,11 @@ npm test
 npm run smoke
 ```
 
-Update the lockfile-controlled Pi smoke runtime as an exact development dependency:
+Update the independently locked Pi smoke runtime as an exact development dependency:
 
 ```bash
-npm install --save-dev --save-exact @earendil-works/pi-coding-agent@<version>
+npm --prefix tests/smoke-runtime install --save-dev --save-exact \
+  @earendil-works/pi-coding-agent@<version>
 npm test
 npm run smoke
 ```

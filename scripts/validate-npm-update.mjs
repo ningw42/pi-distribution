@@ -8,7 +8,12 @@ const dependencySections = ["dependencies", "devDependencies"];
 const exactVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const sorted = (values) => [...values].sort();
 
-export function validateNpmUpdate(basePackage, headPackage, lockRoot) {
+export function validateNpmUpdate(
+  basePackage,
+  headPackage,
+  lockRoot,
+  { requireChange = true } = {},
+) {
   const changed = [];
 
   for (const section of dependencySections) {
@@ -29,14 +34,20 @@ export function validateNpmUpdate(basePackage, headPackage, lockRoot) {
     }
   }
 
-  assert.ok(
-    changed.length > 0,
-    "Renovate PR must change at least one direct dependency or devDependency",
-  );
+  if (requireChange) {
+    assert.ok(
+      changed.length > 0,
+      "Renovate PR must change at least one direct dependency or devDependency",
+    );
+  }
 
   const normalizedHead = structuredClone(headPackage);
   for (const section of dependencySections) {
-    normalizedHead[section] = basePackage[section];
+    if (Object.hasOwn(basePackage, section)) {
+      normalizedHead[section] = basePackage[section];
+    } else {
+      delete normalizedHead[section];
+    }
   }
   assert.deepEqual(
     normalizedHead,
@@ -46,12 +57,26 @@ export function validateNpmUpdate(basePackage, headPackage, lockRoot) {
 
   for (const section of dependencySections) {
     assert.deepEqual(
-      lockRoot[section],
-      headPackage[section],
+      lockRoot[section] ?? {},
+      headPackage[section] ?? {},
       `lockfile root ${section} must match package.json`,
     );
   }
 
+  return changed;
+}
+
+export function validateNpmUpdates(targets) {
+  const changed = targets.flatMap(({ path, basePackage, headPackage, lockRoot }) =>
+    validateNpmUpdate(basePackage, headPackage, lockRoot, { requireChange: false }).map(
+      (change) => ({ path, ...change }),
+    ),
+  );
+
+  assert.ok(
+    changed.length > 0,
+    "Renovate PR must change at least one direct dependency or devDependency",
+  );
   return changed;
 }
 
@@ -71,13 +96,20 @@ function main() {
   const baseSha = process.argv[2];
   assert.ok(baseSha, "usage: node scripts/validate-npm-update.mjs <base-sha>");
 
-  const basePackage = readJsonFromGit(baseSha, "package.json");
-  const headPackage = readJson("package.json");
-  const lockRoot = readJson("package-lock.json").packages[""];
-  const changed = validateNpmUpdate(basePackage, headPackage, lockRoot);
+  const packagePairs = [
+    ["package.json", "package-lock.json"],
+    ["tests/smoke-runtime/package.json", "tests/smoke-runtime/package-lock.json"],
+  ];
+  const targets = packagePairs.map(([packagePath, lockPath]) => ({
+    path: packagePath,
+    basePackage: readJsonFromGit(baseSha, packagePath),
+    headPackage: readJson(packagePath),
+    lockRoot: readJson(lockPath).packages[""],
+  }));
+  const changed = validateNpmUpdates(targets);
 
-  for (const { section, name, from, to } of changed) {
-    console.log(`${section}.${name}: ${from} -> ${to}`);
+  for (const { path, section, name, from, to } of changed) {
+    console.log(`${path}:${section}.${name}: ${from} -> ${to}`);
   }
 }
 

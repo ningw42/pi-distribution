@@ -45,8 +45,24 @@ jobs:
 
           if [[ "$AUTHOR" == "renovate[bot]" && "$HEAD_REF" == renovate/npm-* ]] \
             && has_label auto-release:npm; then
-            expected=$'package-lock.json\npackage.json'
-            [[ "$(printf '%s\n' "${changed[@]}")" == "$expected" ]]
+            allowed=$'package-lock.json\npackage.json\ntests/smoke-runtime/package-lock.json\ntests/smoke-runtime/package.json'
+            changed_text="$(printf '%s\n' "${changed[@]}")"
+            for path in "${changed[@]}"; do grep -Fxq "$path" <<< "$allowed"; done
+
+            has_update=0
+            if grep -Fxq package.json <<< "$changed_text" \
+              || grep -Fxq package-lock.json <<< "$changed_text"; then
+              grep -Fxq package.json <<< "$changed_text"
+              grep -Fxq package-lock.json <<< "$changed_text"
+              has_update=1
+            fi
+            if grep -Fxq tests/smoke-runtime/package.json <<< "$changed_text" \
+              || grep -Fxq tests/smoke-runtime/package-lock.json <<< "$changed_text"; then
+              grep -Fxq tests/smoke-runtime/package.json <<< "$changed_text"
+              grep -Fxq tests/smoke-runtime/package-lock.json <<< "$changed_text"
+              has_update=1
+            fi
+            (( has_update == 1 ))
             echo "update-class=npm" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -153,7 +169,24 @@ jobs:
           )
           if [[ "$author" == "renovate[bot]" && "$head_ref" == renovate/npm-* ]] \
             && jq -e 'index("auto-release:npm") != null' <<< "$labels" >/dev/null; then
-            [[ "$(printf '%s\n' "${changed[@]}")" == $'package-lock.json\npackage.json' ]]
+            allowed=$'package-lock.json\npackage.json\ntests/smoke-runtime/package-lock.json\ntests/smoke-runtime/package.json'
+            changed_text="$(printf '%s\n' "${changed[@]}")"
+            for path in "${changed[@]}"; do grep -Fxq "$path" <<< "$allowed"; done
+
+            has_update=0
+            if grep -Fxq package.json <<< "$changed_text" \
+              || grep -Fxq package-lock.json <<< "$changed_text"; then
+              grep -Fxq package.json <<< "$changed_text"
+              grep -Fxq package-lock.json <<< "$changed_text"
+              has_update=1
+            fi
+            if grep -Fxq tests/smoke-runtime/package.json <<< "$changed_text" \
+              || grep -Fxq tests/smoke-runtime/package-lock.json <<< "$changed_text"; then
+              grep -Fxq tests/smoke-runtime/package.json <<< "$changed_text"
+              grep -Fxq tests/smoke-runtime/package-lock.json <<< "$changed_text"
+              has_update=1
+            fi
+            (( has_update == 1 ))
             exit 0
           fi
           if [[ "$author" == "github-actions[bot]" && "$head_ref" == auto-update/pi-rtk-* ]] \

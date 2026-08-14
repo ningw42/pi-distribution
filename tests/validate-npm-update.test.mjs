@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { validateNpmUpdate } from "../scripts/validate-npm-update.mjs";
+import {
+  validateNpmUpdate,
+  validateNpmUpdates,
+} from "../scripts/validate-npm-update.mjs";
 
 const basePackage = {
   name: "fixture",
@@ -25,8 +28,8 @@ function updatedPackage({ runtime = "1.0.0", development = "2.0.0" } = {}) {
 
 function matchingLock(headPackage) {
   return {
-    dependencies: structuredClone(headPackage.dependencies),
-    devDependencies: structuredClone(headPackage.devDependencies),
+    dependencies: structuredClone(headPackage.dependencies ?? {}),
+    devDependencies: structuredClone(headPackage.devDependencies ?? {}),
   };
 }
 
@@ -89,5 +92,65 @@ test("rejects a stale root devDependencies lock entry", () => {
   assert.throws(
     () => validateNpmUpdate(basePackage, headPackage, lockRoot),
     /lockfile root devDependencies must match package.json/,
+  );
+});
+
+test("accepts an update confined to the smoke runtime package", () => {
+  const productionPackage = {
+    name: "production",
+    version: "1.0.0",
+    private: true,
+    dependencies: { runtime: "1.0.0" },
+  };
+  const smokeBase = {
+    name: "smoke-runtime",
+    version: "0.0.0",
+    private: true,
+    devDependencies: { pi: "2.0.0" },
+  };
+  const smokeHead = {
+    ...structuredClone(smokeBase),
+    devDependencies: { pi: "2.1.0" },
+  };
+
+  assert.deepEqual(
+    validateNpmUpdates([
+      {
+        path: "package.json",
+        basePackage: productionPackage,
+        headPackage: structuredClone(productionPackage),
+        lockRoot: matchingLock(productionPackage),
+      },
+      {
+        path: "tests/smoke-runtime/package.json",
+        basePackage: smokeBase,
+        headPackage: smokeHead,
+        lockRoot: matchingLock(smokeHead),
+      },
+    ]),
+    [
+      {
+        path: "tests/smoke-runtime/package.json",
+        section: "devDependencies",
+        name: "pi",
+        from: "2.0.0",
+        to: "2.1.0",
+      },
+    ],
+  );
+});
+
+test("rejects an aggregate update with no dependency changes", () => {
+  assert.throws(
+    () =>
+      validateNpmUpdates([
+        {
+          path: "package.json",
+          basePackage,
+          headPackage: structuredClone(basePackage),
+          lockRoot: matchingLock(basePackage),
+        },
+      ]),
+    /must change at least one direct dependency or devDependency/,
   );
 });
