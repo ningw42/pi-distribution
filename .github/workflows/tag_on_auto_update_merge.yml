@@ -84,28 +84,7 @@ jobs:
           set -euo pipefail
           git fetch --no-tags origin "$BASE_SHA"
           if [[ "$UPDATE_CLASS" == npm ]]; then
-            node <<'NODE'
-          const assert = require("node:assert/strict");
-          const { execFileSync } = require("node:child_process");
-          const { readFileSync } = require("node:fs");
-          const fromGit = (sha, path) => JSON.parse(execFileSync("git", ["show", `${sha}:${path}`], { encoding: "utf8" }));
-          const base = fromGit(process.env.BASE_SHA, "package.json");
-          const head = JSON.parse(readFileSync("package.json", "utf8"));
-          assert.deepEqual(Object.keys(head.dependencies).sort(), Object.keys(base.dependencies).sort());
-          const changed = Object.keys(head.dependencies).filter((name) => head.dependencies[name] !== base.dependencies[name]);
-          assert.ok(changed.length > 0, "Renovate PR must change at least one direct dependency");
-          for (const [name, version] of Object.entries(head.dependencies)) {
-            assert.match(version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, `${name} must remain exactly pinned`);
-          }
-          const normalizedHead = structuredClone(head);
-          normalizedHead.dependencies = base.dependencies;
-          assert.deepEqual(normalizedHead, base, "Renovate PR changed package metadata outside dependencies");
-          const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
-          assert.deepEqual(lock.packages[""].dependencies, head.dependencies);
-          for (const name of changed) {
-            console.log(`${name}: ${base.dependencies[name]} -> ${head.dependencies[name]}`);
-          }
-          NODE
+            node scripts/validate-npm-update.mjs "$BASE_SHA"
           else
             node <<'NODE'
           const assert = require("node:assert/strict");

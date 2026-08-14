@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "check": "node scripts/check-package.mjs",
-    "test": "npm run check",
+    "test": "node --test tests/*.test.mjs && npm run check",
     "smoke": "node scripts/smoke-test.mjs",
     "update:pi-rtk": "node scripts/update-pi-rtk.mjs"
   },
