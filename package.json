@@ -24,6 +24,7 @@
   "dependencies": {
     "@juicesharp/rpiv-ask-user-question": "2.6.0",
     "@quintinshaw/pi-dynamic-workflows": "3.5.1",
+    "@sherif-fanous/pi-catppuccin": "0.2.0",
     "@tintinweb/pi-subagents": "0.16.1",
     "@tintinweb/pi-tasks": "0.7.2",
     "pi-cc-extensions": "0.8.60",
@@ -35,6 +36,7 @@
     "@tintinweb/pi-subagents",
     "@tintinweb/pi-tasks",
     "@juicesharp/rpiv-ask-user-question",
+    "@sherif-fanous/pi-catppuccin",
     "pi-cc-extensions",
     "pi-mcp-adapter",
     "pi-theme-picker"
@@ -77,7 +79,8 @@
       "./node_modules/pi-mcp-adapter/skills/mcp-scripting"
     ],
     "themes": [
-      "./node_modules/pi-cc-extensions/themes"
+      "./node_modules/pi-cc-extensions/themes",
+      "./node_modules/@sherif-fanous/pi-catppuccin/themes"
     ]
   },
   "packageManager": "npm@11.16.0"

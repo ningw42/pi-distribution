@@ -191,6 +191,8 @@ try {
     "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
     "node_modules/@quintinshaw/pi-dynamic-workflows/package.json",
     "node_modules/@quintinshaw/pi-dynamic-workflows/LICENSE",
+    "node_modules/@sherif-fanous/pi-catppuccin/package.json",
+    "node_modules/@sherif-fanous/pi-catppuccin/LICENSE",
     "node_modules/pi-mcp-adapter/index.ts",
     "node_modules/pi-theme-picker/index.ts",
     "node_modules/pi-theme-picker/LICENSE",

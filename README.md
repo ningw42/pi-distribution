@@ -1,8 +1,8 @@
 # pi-distribution
 
-An aggregate [Pi package](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/packages.md) containing a cohesive set of coding-agent extensions and every Pi resource shipped with them.
+An aggregate [Pi package](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/packages.md) containing a cohesive set of coding-agent extensions and curated Pi resources.
 
-The package exposes extensions through a uniform forwarding-shim layer, skills, and every theme shipped by the pinned `pi-cc-extensions` dependency. None of the aggregated implementations ships a prompt template.
+The package exposes extensions through a uniform forwarding-shim layer, skills, and the theme collections shipped by the pinned `pi-cc-extensions` and `@sherif-fanous/pi-catppuccin` dependencies. None of the aggregated implementations ships a prompt template.
 
 ## Included resources
 
@@ -30,8 +30,9 @@ Every public extension entry is `extensions/<name>/index.ts`. The entries only f
 | `workflow-patterns` | Skill | `@quintinshaw/pi-dynamic-workflows` | Argument guidance for the five built-in workflow patterns |
 | `mcp-scripting` | Skill | `pi-mcp-adapter` | Guidance for composing multi-call `mcpScript` programs |
 | `pi-cc-extensions/themes` | Theme collection | `pi-cc-extensions` | All JSON themes shipped by the pinned dependency |
+| `pi-catppuccin/themes` | Theme collection | `@sherif-fanous/pi-catppuccin` | All four Catppuccin flavors |
 
-The root manifest names the extensions and skills through exact `node_modules/` paths and exposes the dependency-owned theme directory. Pi does not recursively activate dependency package manifests.
+The root manifest names the extensions and skills through exact `node_modules/` paths and exposes the dependency-owned theme directories. Pi does not recursively activate dependency package manifests.
 
 ## Install
 
@@ -45,7 +46,7 @@ pi install /absolute/path/to/pi-distribution
 pi install git:github.com/ningw42/pi-distribution@<revision>
 ```
 
-Pi runs `npm install` for Git packages. This repository commits `package-lock.json`, uses exact dependency versions, and configures npm to leave Pi-provided peer packages unresolved so Pi supplies its own runtime modules. Installing the aggregate makes all declared extensions, skills, and dependency-owned themes available.
+Pi runs `npm install` for Git packages. This repository commits `package-lock.json`, uses exact dependency versions, and configures npm to leave Pi-provided peer packages unresolved so Pi supplies its own runtime modules. Installing the aggregate makes all declared extensions, skills, and themes available.
 
 ### Offline Windows release artifact
 
@@ -82,16 +83,17 @@ export PI_STATUSLINE_STARSHIP=/absolute/path/to/starship
 
 ## Resource scope
 
-The aggregate root is the public resource interface. Its `package.json` explicitly declares the complete resource union shipped by the aggregated implementations:
+The aggregate root is the public resource interface. Its `package.json` explicitly declares the complete curated resource set:
 
 - the extensions listed above;
 - `workflow-authoring` and `workflow-patterns` from dynamic workflows;
 - `mcp-scripting` from the MCP adapter;
-- every JSON theme in the pinned Pi CC Extensions theme directory.
+- every JSON theme in the pinned Pi CC Extensions theme directory;
+- all four themes in the pinned `@sherif-fanous/pi-catppuccin` package.
 
-Nothing in that current nested Pi resource interface is suppressed. No dependency ships a prompt template, so `pi.prompts` is absent. Extension and skill entries use exact paths. The theme entry deliberately exposes only `node_modules/pi-cc-extensions/themes`, allowing that dependency to own its theme inventory without activating dependency manifests or unrelated files elsewhere under `node_modules`.
+No dependency ships a prompt template, so `pi.prompts` is absent. Extension and skill entries use exact paths. The theme entries deliberately expose only the two dependency-owned theme directories, allowing each dependency to own its inventory without activating dependency manifests or unrelated files elsewhere under `node_modules`.
 
-The themes are available after installation, but installation does not select one. Use the bundled `pi-theme-picker` extension's `/theme` command to preview, select, and persist a theme, or configure one manually. External themes such as Catppuccin remain consumer configuration.
+The themes are available after installation, but installation does not select one. Use the bundled `pi-theme-picker` extension's `/theme` command to preview, select, and persist a theme, or configure one manually. Theme selection remains consumer configuration.
 
 ## Development and verification
 

@@ -36,10 +36,21 @@ const expectedSkills = [
   "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns",
   "./node_modules/pi-mcp-adapter/skills/mcp-scripting",
 ];
-const expectedThemes = ["./node_modules/pi-cc-extensions/themes"];
+const catppuccinThemeDirectory = "./node_modules/@sherif-fanous/pi-catppuccin/themes";
+const expectedCatppuccinThemeNames = [
+  "catppuccin-frappe",
+  "catppuccin-latte",
+  "catppuccin-macchiato",
+  "catppuccin-mocha",
+];
+const expectedThemes = [
+  "./node_modules/pi-cc-extensions/themes",
+  catppuccinThemeDirectory,
+];
 const expectedDependencyNames = [
   "@juicesharp/rpiv-ask-user-question",
   "@quintinshaw/pi-dynamic-workflows",
+  "@sherif-fanous/pi-catppuccin",
   "@tintinweb/pi-subagents",
   "@tintinweb/pi-tasks",
   "pi-cc-extensions",
@@ -97,19 +108,36 @@ for (const [resourceType, expectedPaths] of Object.entries(pkg.pi)) {
   }
 }
 
-const themeDirectory = expectedThemes[0];
-const themeFiles = readdirSync(join(root, themeDirectory), { withFileTypes: true })
-  .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
-  .map((entry) => `${themeDirectory}/${entry.name}`)
+const themeFiles = expectedThemes
+  .flatMap((themeDirectory) => {
+    const files = readdirSync(join(root, themeDirectory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .map((entry) => `${themeDirectory}/${entry.name}`);
+    assert.ok(files.length > 0, `${themeDirectory} must contain at least one JSON theme`);
+    return files;
+  })
   .sort();
-assert.ok(themeFiles.length > 0, `${themeDirectory} must contain at least one JSON theme`);
-const themeNames = themeFiles.map((path) => {
+const themes = themeFiles.map((path) => {
   const theme = readJson(path);
   assert.equal(typeof theme.name, "string", `${path} must declare a string theme name`);
   assert.notEqual(theme.name.trim(), "", `${path} must declare a non-empty theme name`);
-  return theme.name;
+  return { path, name: theme.name };
 });
-assert.equal(new Set(themeNames).size, themeNames.length, "upstream theme names must be unique");
+const themeNames = themes.map(({ name }) => name);
+assert.equal(
+  new Set(themeNames).size,
+  themeNames.length,
+  "theme names must be unique across all exposed collections",
+);
+assert.deepEqual(
+  sorted(
+    themes
+      .filter(({ path }) => path.startsWith(`${catppuccinThemeDirectory}/`))
+      .map(({ name }) => name),
+  ),
+  expectedCatppuccinThemeNames,
+  "the Catppuccin collection must expose all four flavors",
+);
 
 assert.deepEqual(sorted(Object.keys(pkg.dependencies)), sorted(expectedDependencyNames));
 for (const [name, version] of Object.entries(pkg.dependencies)) {
@@ -137,6 +165,7 @@ for (const [path, target] of Object.entries(shimTargets)) {
 for (const dependency of [
   "@juicesharp/rpiv-ask-user-question",
   "@quintinshaw/pi-dynamic-workflows",
+  "@sherif-fanous/pi-catppuccin",
   "pi-theme-picker",
 ]) {
   assert.equal(
@@ -153,6 +182,12 @@ for (const [entryPath, name] of Object.entries(dependencyTargets)) {
   assert.equal(dependencyPackage.name, name);
   assert.equal(dependencyPackage.version, pkg.dependencies[name]);
 }
+const catppuccinName = "@sherif-fanous/pi-catppuccin";
+const catppuccinPackage = readJson(`node_modules/${catppuccinName}/package.json`);
+assert.equal(catppuccinPackage.name, catppuccinName);
+assert.equal(catppuccinPackage.version, pkg.dependencies[catppuccinName]);
+assert.equal(catppuccinPackage.license, "MIT");
+assert.deepEqual(catppuccinPackage.pi, { themes: ["./themes"] });
 
 assert.equal(lock.lockfileVersion, 3);
 assert.deepEqual(lock.packages[""].dependencies, pkg.dependencies);
