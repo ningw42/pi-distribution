@@ -22,7 +22,7 @@
     "update:pi-rtk": "node scripts/update-pi-rtk.mjs"
   },
   "dependencies": {
-    "@juicesharp/rpiv-ask-user-question": "2.6.0",
+    "@juicesharp/rpiv-ask-user-question": "2.6.1",
     "@quintinshaw/pi-dynamic-workflows": "3.6.0",
     "@sherif-fanous/pi-catppuccin": "0.2.0",
     "@tintinweb/pi-subagents": "0.16.1",
