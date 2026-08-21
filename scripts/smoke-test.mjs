@@ -174,6 +174,7 @@ try {
     "package.json",
     "extensions/pi-rtk/index.ts",
     "extensions/pi-statusline/index.ts",
+    "extensions/pi-status/index.ts",
     "extensions/rpiv-ask-user-question/index.ts",
     "extensions/pi-cc-extensions/index.ts",
     "extensions/pi-dynamic-workflows/index.ts",
@@ -194,6 +195,8 @@ try {
     "node_modules/@sherif-fanous/pi-catppuccin/package.json",
     "node_modules/@sherif-fanous/pi-catppuccin/LICENSE",
     "node_modules/pi-mcp-adapter/index.ts",
+    "node_modules/@thinkscape/pi-status/src/index.ts",
+    "node_modules/@thinkscape/pi-status/LICENSE",
     "node_modules/pi-theme-picker/index.ts",
     "node_modules/pi-theme-picker/LICENSE",
     "node_modules/@tintinweb/pi-subagents/src/index.ts",
@@ -257,7 +260,7 @@ try {
 
   const commands = rpcSmoke(extractedPackage);
   const commandNames = new Set(commands.filter((command) => command.source === "extension").map((command) => command.name));
-  for (const expectedCommand of ["agents", "tasks", "mcp", "theme", "workflows"]) {
+  for (const expectedCommand of ["agents", "tasks", "mcp", "pi-status", "theme", "workflows"]) {
     assert.equal(commandNames.has(expectedCommand), true, `aggregate is missing /${expectedCommand}`);
   }
   const expectedSkillCommands = [

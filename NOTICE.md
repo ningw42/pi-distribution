@@ -28,6 +28,7 @@ copied into `vendor/`:
 - `@juicesharp/rpiv-ask-user-question` (MIT)
 - `pi-cc-extensions`
 - `@sherif-fanous/pi-catppuccin` (MIT)
+- `@thinkscape/pi-status` (MIT)
 - `@quintinshaw/pi-dynamic-workflows`, a continuation of Michael Livs'
   original `pi-dynamic-workflows`
 - `pi-mcp-adapter`
@@ -43,5 +44,6 @@ The aggregate also exposes the two workflow skills from
 directory, and all four themes from `@sherif-fanous/pi-catppuccin`. Their
 upstream license files, supporting skill and theme files, and package metadata
 remain within their installed or bundled package directories. The bundled
-`@juicesharp/rpiv-ask-user-question`, `@sherif-fanous/pi-catppuccin`, and
-`pi-theme-picker` packages include their MIT licenses.
+`@juicesharp/rpiv-ask-user-question`, `@sherif-fanous/pi-catppuccin`,
+`@thinkscape/pi-status`, and `pi-theme-picker` packages include their MIT
+licenses.

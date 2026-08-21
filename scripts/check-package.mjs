@@ -23,6 +23,7 @@ assert.equal(
 const expectedExtensions = [
   "./extensions/pi-rtk/index.ts",
   "./extensions/pi-statusline/index.ts",
+  "./extensions/pi-status/index.ts",
   "./extensions/rpiv-ask-user-question/index.ts",
   "./extensions/pi-cc-extensions/index.ts",
   "./extensions/pi-dynamic-workflows/index.ts",
@@ -51,6 +52,7 @@ const expectedDependencyNames = [
   "@juicesharp/rpiv-ask-user-question",
   "@quintinshaw/pi-dynamic-workflows",
   "@sherif-fanous/pi-catppuccin",
+  "@thinkscape/pi-status",
   "@tintinweb/pi-subagents",
   "@tintinweb/pi-tasks",
   "pi-cc-extensions",
@@ -68,6 +70,7 @@ const expectedPeers = {
 const shimTargets = {
   "extensions/pi-rtk/index.ts": "vendor/pi-rtk/index.ts",
   "extensions/pi-statusline/index.ts": "vendor/pi-statusline/index.ts",
+  "extensions/pi-status/index.ts": "node_modules/@thinkscape/pi-status/src/index.ts",
   "extensions/rpiv-ask-user-question/index.ts":
     "node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
   "extensions/pi-cc-extensions/index.ts": "node_modules/pi-cc-extensions/extensions/index.ts",
@@ -85,6 +88,7 @@ const dependencyTargets = {
   "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts":
     "@quintinshaw/pi-dynamic-workflows",
   "node_modules/pi-mcp-adapter/index.ts": "pi-mcp-adapter",
+  "node_modules/@thinkscape/pi-status/src/index.ts": "@thinkscape/pi-status",
   "node_modules/pi-theme-picker/index.ts": "pi-theme-picker",
   "node_modules/@tintinweb/pi-subagents/src/index.ts": "@tintinweb/pi-subagents",
   "node_modules/@tintinweb/pi-tasks/src/index.ts": "@tintinweb/pi-tasks",
@@ -166,6 +170,7 @@ for (const dependency of [
   "@juicesharp/rpiv-ask-user-question",
   "@quintinshaw/pi-dynamic-workflows",
   "@sherif-fanous/pi-catppuccin",
+  "@thinkscape/pi-status",
   "pi-theme-picker",
 ]) {
   assert.equal(
@@ -269,5 +274,5 @@ assert.match(
 );
 
 console.log(
-  `package checks passed: 9 extensions, 3 skills, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
+  `package checks passed: 10 extensions, 3 skills, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
 );

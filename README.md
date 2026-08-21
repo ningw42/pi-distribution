@@ -12,6 +12,7 @@ The package exposes extensions through a uniform forwarding-shim layer, skills, 
 |---|---|---|
 | `pi-rtk` | Canonical generated Pi integration from `rtk-ai/rtk` | [`vendor/pi-rtk/metadata.json`](vendor/pi-rtk/metadata.json) |
 | `pi-statusline` | Package-maintained portable statusline | repository version |
+| `pi-status` | npm dependency `@thinkscape/pi-status`; drives the terminal tab title and Ghostty OSC 9;4 progress bar | `package.json` |
 | `rpiv-ask-user-question` | npm dependency `@juicesharp/rpiv-ask-user-question` | `package.json` |
 | `pi-cc-extensions` | npm dependency | `package.json` |
 | `pi-dynamic-workflows` | npm dependency `@quintinshaw/pi-dynamic-workflows` | `package.json` |
