@@ -22,13 +22,13 @@
     "update:pi-rtk": "node scripts/update-pi-rtk.mjs"
   },
   "dependencies": {
-    "@juicesharp/rpiv-ask-user-question": "2.6.2",
+    "@juicesharp/rpiv-ask-user-question": "2.6.4",
     "@quintinshaw/pi-dynamic-workflows": "3.7.0",
     "@sherif-fanous/pi-catppuccin": "0.2.0",
-    "@tintinweb/pi-subagents": "0.17.1",
+    "@tintinweb/pi-subagents": "0.18.0",
     "@tintinweb/pi-tasks": "0.8.0",
-    "pi-cc-extensions": "0.8.61",
-    "pi-mcp-adapter": "2.26.1",
+    "pi-cc-extensions": "0.8.64",
+    "pi-mcp-adapter": "2.27.0",
     "pi-theme-picker": "0.1.2"
   },
   "bundleDependencies": [
