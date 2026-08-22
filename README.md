@@ -16,6 +16,7 @@ The package exposes extensions through a uniform forwarding-shim layer, skills, 
 | `rpiv-ask-user-question` | npm dependency `@juicesharp/rpiv-ask-user-question` | `package.json` |
 | `pi-cc-extensions` | npm dependency | `package.json` |
 | `pi-dynamic-workflows` | npm dependency `@quintinshaw/pi-dynamic-workflows` | `package.json` |
+| `pi-inline-skills` | npm dependency `@tifan/pi-inline-skills`; adds inline `/skill` autocomplete and loads referenced skills for the turn | `package.json` |
 | `pi-mcp-adapter` | npm dependency | `package.json` |
 | `pi-theme-picker` | npm dependency; adds the `/theme` picker | `package.json` |
 | `pi-subagents` | npm dependency `@tintinweb/pi-subagents` | `package.json` |

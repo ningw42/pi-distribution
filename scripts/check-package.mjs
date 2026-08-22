@@ -27,6 +27,7 @@ const expectedExtensions = [
   "./extensions/rpiv-ask-user-question/index.ts",
   "./extensions/pi-cc-extensions/index.ts",
   "./extensions/pi-dynamic-workflows/index.ts",
+  "./extensions/pi-inline-skills/index.ts",
   "./extensions/pi-mcp-adapter/index.ts",
   "./extensions/pi-theme-picker/index.ts",
   "./extensions/pi-subagents/index.ts",
@@ -53,6 +54,7 @@ const expectedDependencyNames = [
   "@quintinshaw/pi-dynamic-workflows",
   "@sherif-fanous/pi-catppuccin",
   "@thinkscape/pi-status",
+  "@tifan/pi-inline-skills",
   "@tintinweb/pi-subagents",
   "@tintinweb/pi-tasks",
   "pi-cc-extensions",
@@ -76,6 +78,8 @@ const shimTargets = {
   "extensions/pi-cc-extensions/index.ts": "node_modules/pi-cc-extensions/extensions/index.ts",
   "extensions/pi-dynamic-workflows/index.ts":
     "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
+  "extensions/pi-inline-skills/index.ts":
+    "node_modules/@tifan/pi-inline-skills/src/index.ts",
   "extensions/pi-mcp-adapter/index.ts": "node_modules/pi-mcp-adapter/index.ts",
   "extensions/pi-theme-picker/index.ts": "node_modules/pi-theme-picker/index.ts",
   "extensions/pi-subagents/index.ts": "node_modules/@tintinweb/pi-subagents/src/index.ts",
@@ -89,6 +93,7 @@ const dependencyTargets = {
     "@quintinshaw/pi-dynamic-workflows",
   "node_modules/pi-mcp-adapter/index.ts": "pi-mcp-adapter",
   "node_modules/@thinkscape/pi-status/src/index.ts": "@thinkscape/pi-status",
+  "node_modules/@tifan/pi-inline-skills/src/index.ts": "@tifan/pi-inline-skills",
   "node_modules/pi-theme-picker/index.ts": "pi-theme-picker",
   "node_modules/@tintinweb/pi-subagents/src/index.ts": "@tintinweb/pi-subagents",
   "node_modules/@tintinweb/pi-tasks/src/index.ts": "@tintinweb/pi-tasks",
@@ -171,6 +176,7 @@ for (const dependency of [
   "@quintinshaw/pi-dynamic-workflows",
   "@sherif-fanous/pi-catppuccin",
   "@thinkscape/pi-status",
+  "@tifan/pi-inline-skills",
   "pi-theme-picker",
 ]) {
   assert.equal(
@@ -274,5 +280,5 @@ assert.match(
 );
 
 console.log(
-  `package checks passed: 10 extensions, 3 skills, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
+  `package checks passed: 11 extensions, 3 skills, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
 );

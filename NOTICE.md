@@ -19,6 +19,41 @@ vendored implementation itself is unmodified.
 It resolves Starship portably through `PATH` while retaining
 `PI_STATUSLINE_STARSHIP` as an explicit binary override.
 
+## Inline skills
+
+`@tifan/pi-inline-skills` is consumed from the pinned npm dependency and exposed
+under the local extension name `pi-inline-skills`; its implementation is not
+copied into `vendor/`.
+
+Upstream: <https://github.com/tifandotme/pi-extensions/tree/master/packages/pi-inline-skills>
+
+License: MIT. The npm archive does not include the monorepo-root license file,
+so its text is reproduced here:
+
+```text
+MIT License
+
+Copyright (c) 2026 Tifan Dwi Avianto
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
 ## Package dependencies
 
 The remaining extension implementations and their public Pi resources are

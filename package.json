@@ -26,6 +26,7 @@
     "@quintinshaw/pi-dynamic-workflows": "3.7.0",
     "@sherif-fanous/pi-catppuccin": "0.2.0",
     "@thinkscape/pi-status": "0.3.6",
+    "@tifan/pi-inline-skills": "1.0.5",
     "@tintinweb/pi-subagents": "0.18.0",
     "@tintinweb/pi-tasks": "0.8.0",
     "pi-cc-extensions": "0.8.64",
@@ -35,6 +36,7 @@
   "bundleDependencies": [
     "@quintinshaw/pi-dynamic-workflows",
     "@thinkscape/pi-status",
+    "@tifan/pi-inline-skills",
     "@tintinweb/pi-subagents",
     "@tintinweb/pi-tasks",
     "@juicesharp/rpiv-ask-user-question",
@@ -71,6 +73,7 @@
       "./extensions/rpiv-ask-user-question/index.ts",
       "./extensions/pi-cc-extensions/index.ts",
       "./extensions/pi-dynamic-workflows/index.ts",
+      "./extensions/pi-inline-skills/index.ts",
       "./extensions/pi-mcp-adapter/index.ts",
       "./extensions/pi-theme-picker/index.ts",
       "./extensions/pi-subagents/index.ts",
