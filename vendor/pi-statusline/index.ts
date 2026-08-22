@@ -8,8 +8,8 @@
  * numbers from `ctx` (sessionManager / model / context usage) plus
  * `pi.getThinkingLevel()`. This file reproduces the same LOOK:
  *
- *   <starship: dir + git>            $cost  ↑all-in (non-cache-read) ↓out  ▰▰▱▱ pct% used/limit  Model  effort
- *   └────────── left ──────────┘     └──────────────── right group, flex-right ──────┘
+ *   <starship: dir + git>            $cost  ↑all-in (cache% • non-cache-read) ↓out  ▰▰▱▱ pct% used/limit  Model  effort
+ *   └────────── left ──────────┘     └─────────────────── right group, flex-right ─────────┘
  *
  * Colours are catppuccin-mocha (teal / maroon / flamingo), emitted as raw
  * 24-bit ANSI so they match statusline.py exactly rather than mapping onto pi's
@@ -49,6 +49,11 @@ const RESET = "\x1b[0m";
 // round-trip (mirrors the same note in statusline.py).
 const CTX_EMPTY = ["\uee00", "\uee01", "\uee02"];
 const CTX_FILLED = ["\uee03", "\uee04", "\uee05"];
+
+// Separates the cache hit rate from the non-cache-read count inside the token
+// section's parentheses. U+2022 is East-Asian-Ambiguous, so visibleWidth() and
+// statusline.py's vlen() agree that it is one column.
+const CACHE_SEP = " \u2022 ";
 
 // --- number / text helpers (ports of statusline.py) --------------------------
 
@@ -155,6 +160,28 @@ function collectMetrics(entries: ReadonlyArray<SessionEntry>): Metrics {
 	return metrics;
 }
 
+/**
+ * Share of accumulated input tokens served from the prompt cache, or null when
+ * nothing has been sent yet.
+ *
+ * null is omitted from the rendered token section entirely rather than filled
+ * with a placeholder. A genuine 0 is kept and shown: a cold or invalidated cache
+ * is a real and meaningfully different reading. This is a token-count rate, not
+ * a spend rate: cache writes cost more per token than reads, so even a high hit
+ * rate can leave the miss share dominating the bill.
+ *
+ * Cumulative, matching the claude-code / copilot-cli statusline. A per-turn
+ * rate would be more sensitive to cache invalidation and is easy to get here
+ * (the last assistant entry's usage), but copilot-cli's payload cannot produce
+ * one -- its last_call_* fields carry no cache split -- so the three agents
+ * would then be showing different metrics under the same glyph.
+ */
+function cacheHitRate(metrics: Metrics): number | null {
+	const allInput = metrics.input + metrics.cacheRead + metrics.cacheWrite;
+	if (allInput <= 0) return null;
+	return Math.max(0, Math.min(1, metrics.cacheRead / allInput));
+}
+
 function renderRight(
 	metrics: Metrics,
 	pct: number | null,
@@ -167,7 +194,17 @@ function renderRight(
 	// This excludes only cache hits. It includes normal input and cache writes,
 	// both of which are more directly tied to spend than cache-read input.
 	const nonCacheReadInput = metrics.input + metrics.cacheWrite;
-	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)} (${fmtTokens(nonCacheReadInput)}) ↓${fmtTokens(metrics.output)}${RESET}`;
+	// ↑all-input (hit-rate • non-cache-read) ↓output. The rate sits next to the
+	// non-cache-read count because the two are one thought: the share that came
+	// from cache, and the absolute remainder that did not.
+	const hitRate = cacheHitRate(metrics);
+	// One decimal, rounded jq-style through jround so this agrees with
+	// statusline.py digit for digit. The trailing zero is kept -- "80.0%" not
+	// "80%" -- so the segment does not change width as the rate drifts, which is
+	// why num() is not used here.
+	const cached =
+		hitRate === null ? "" : `${(jround(hitRate * 1000) / 10).toFixed(1)}%${CACHE_SEP}`;
+	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)} (${cached}${fmtTokens(nonCacheReadInput)}) ↓${fmtTokens(metrics.output)}${RESET}`;
 	const context =
 		pct === null || contextTokens === null
 			? `?% ?/${fmtTokens(limit)}`
