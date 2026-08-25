@@ -8,7 +8,7 @@
  * numbers from `ctx` (sessionManager / model / context usage) plus
  * `pi.getThinkingLevel()`. This file reproduces the same LOOK:
  *
- *   <starship: dir + git>            $cost  ↑all-in (cache% · non-cache-read) ↓out  ▰▰▱▱ pct% used/limit  Model  effort
+ *   <starship: dir + git>            $cost  ↑all-in (󰮆 non-cache-read 󱤟 cache%) ↓out  ▰▰▱▱ pct% used/limit  Model  effort
  *   └────────── left ──────────┘     └─────────────────── right group, flex-right ─────────┘
  *
  * Colours are catppuccin-mocha (teal / maroon / flamingo), emitted as raw
@@ -50,10 +50,11 @@ const RESET = "\x1b[0m";
 const CTX_EMPTY = ["\uee00", "\uee01", "\uee02"];
 const CTX_FILLED = ["\uee03", "\uee04", "\uee05"];
 
-// Separates the cache hit rate from the non-cache-read count inside the token
-// section's parentheses. U+00B7 is East-Asian-Ambiguous, so visibleWidth() and
-// statusline.py's vlen() agree that it is one column.
-const CACHE_SEP = " \u00b7 ";
+// Nerd Font icons labelling the non-cache-read input and cache hit rate inside
+// the token section's parentheses. Written as escapes so the source survives
+// encoding and HTML round-trips.
+const NON_CACHE_READ_ICON = "\u{f0b86}";
+const CACHE_HIT_ICON = "\u{f191f}";
 
 // --- number / text helpers (ports of statusline.py) --------------------------
 
@@ -194,17 +195,19 @@ function renderRight(
 	// This excludes only cache hits. It includes normal input and cache writes,
 	// both of which are more directly tied to spend than cache-read input.
 	const nonCacheReadInput = metrics.input + metrics.cacheWrite;
-	// ↑all-input (hit-rate · non-cache-read) ↓output. The rate sits next to the
-	// non-cache-read count because the two are one thought: the share that came
-	// from cache, and the absolute remainder that did not.
+	// ↑all-input (non-cache-read cache-hit-rate) ↓output. Icons identify the two
+	// parenthesised values. When the rate is unknowable its icon and value are
+	// dropped rather than filled with a placeholder.
 	const hitRate = cacheHitRate(metrics);
 	// One decimal, rounded jq-style through jround so this agrees with
 	// statusline.py digit for digit. The trailing zero is kept -- "80.0%" not
 	// "80%" -- so the segment does not change width as the rate drifts, which is
 	// why num() is not used here.
-	const cached =
-		hitRate === null ? "" : `${(jround(hitRate * 1000) / 10).toFixed(1)}%${CACHE_SEP}`;
-	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)} (${cached}${fmtTokens(nonCacheReadInput)}) ↓${fmtTokens(metrics.output)}${RESET}`;
+	const cacheHit =
+		hitRate === null
+			? ""
+			: ` ${CACHE_HIT_ICON} ${(jround(hitRate * 1000) / 10).toFixed(1)}%`;
+	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)} (${NON_CACHE_READ_ICON} ${fmtTokens(nonCacheReadInput)}${cacheHit}) ↓${fmtTokens(metrics.output)}${RESET}`;
 	const context =
 		pct === null || contextTokens === null
 			? `?% ?/${fmtTokens(limit)}`
