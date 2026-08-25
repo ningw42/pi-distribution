@@ -40,8 +40,8 @@ function fg(hex: string): string {
 
 const TEAL = fg("#94E2D5"); // cumulative cost
 const SAPPHIRE = fg("#74C7EC"); // cumulative token usage
-const MAROON = fg("#EBA0AC"); // context bar
-const FLAMINGO = fg("#F2CDCD"); // model + effort
+const MAROON = fg("#EBA0AC"); // model + effort
+const FLAMINGO = fg("#F2CDCD"); // context bar
 const RESET = "\x1b[0m";
 
 // Nerd-font progress-bar cells (Private Use Area): (left-cap, middle, right-cap),
@@ -215,9 +215,9 @@ function renderRight(
 	const segs = [
 		`${TEAL}$${metrics.cost.toFixed(2)}${RESET}`,
 		tokens,
-		`${MAROON}${context}${RESET}`,
-		`${FLAMINGO}${model}${RESET}`,
-		`${FLAMINGO}${effort}${RESET}`,
+		`${FLAMINGO}${context}${RESET}`,
+		`${MAROON}${model}${RESET}`,
+		`${MAROON}${effort}${RESET}`,
 	];
 	return segs.join(" ");
 }
