@@ -8,7 +8,7 @@
  * numbers from `ctx` (sessionManager / model / context usage) plus
  * `pi.getThinkingLevel()`. This file reproduces the same LOOK:
  *
- *   <starship: dir + git>            $cost  ↑all-in (cache% • non-cache-read) ↓out  ▰▰▱▱ pct% used/limit  Model  effort
+ *   <starship: dir + git>            $cost  ↑all-in (cache% · non-cache-read) ↓out  ▰▰▱▱ pct% used/limit  Model  effort
  *   └────────── left ──────────┘     └─────────────────── right group, flex-right ─────────┘
  *
  * Colours are catppuccin-mocha (teal / maroon / flamingo), emitted as raw
@@ -51,9 +51,9 @@ const CTX_EMPTY = ["\uee00", "\uee01", "\uee02"];
 const CTX_FILLED = ["\uee03", "\uee04", "\uee05"];
 
 // Separates the cache hit rate from the non-cache-read count inside the token
-// section's parentheses. U+2022 is East-Asian-Ambiguous, so visibleWidth() and
+// section's parentheses. U+00B7 is East-Asian-Ambiguous, so visibleWidth() and
 // statusline.py's vlen() agree that it is one column.
-const CACHE_SEP = " \u2022 ";
+const CACHE_SEP = " \u00b7 ";
 
 // --- number / text helpers (ports of statusline.py) --------------------------
 
@@ -194,7 +194,7 @@ function renderRight(
 	// This excludes only cache hits. It includes normal input and cache writes,
 	// both of which are more directly tied to spend than cache-read input.
 	const nonCacheReadInput = metrics.input + metrics.cacheWrite;
-	// ↑all-input (hit-rate • non-cache-read) ↓output. The rate sits next to the
+	// ↑all-input (hit-rate · non-cache-read) ↓output. The rate sits next to the
 	// non-cache-read count because the two are one thought: the share that came
 	// from cache, and the absolute remainder that did not.
 	const hitRate = cacheHitRate(metrics);
