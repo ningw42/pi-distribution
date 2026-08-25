@@ -33,28 +33,27 @@ jobs:
       - name: Download and verify the latest RTK release
         id: release
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           work="$(mktemp -d)"
           release="$work/release.json"
-          curl --fail --silent --show-error --location \
-            https://api.github.com/repos/rtk-ai/rtk/releases/latest > "$release"
+          gh api \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            repos/rtk-ai/rtk/releases/latest > "$release"
 
           tag="$(jq -er '.tag_name' "$release")"
           version="${tag#v}"
           [[ "$tag" == "v$version" && "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 
           asset="rtk-x86_64-unknown-linux-musl.tar.gz"
-          asset_url="$(jq -er --arg name "$asset" \
-            '[.assets[] | select(.name == $name)] | if length == 1 then .[0].browser_download_url else error("expected one RTK archive") end' \
-            "$release")"
-          checksums_url="$(jq -er \
-            '[.assets[] | select(.name == "checksums.txt")] | if length == 1 then .[0].browser_download_url else error("expected checksums.txt") end' \
-            "$release")"
-
           mkdir -p "$work/download" "$work/extract"
-          curl --fail --silent --show-error --location "$asset_url" -o "$work/download/$asset"
-          curl --fail --silent --show-error --location "$checksums_url" -o "$work/download/checksums.txt"
+          gh release download "$tag" \
+            --repo rtk-ai/rtk \
+            --pattern "$asset" \
+            --pattern "checksums.txt" \
+            --dir "$work/download"
 
           checksum_line="$(grep -F "  $asset" "$work/download/checksums.txt")"
           [[ "$(printf '%s\n' "$checksum_line" | wc -l)" -eq 1 ]]
