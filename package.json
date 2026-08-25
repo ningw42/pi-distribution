@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@juicesharp/rpiv-ask-user-question": "2.7.1",
+    "@juicesharp/rpiv-btw": "2.7.1",
     "@quintinshaw/pi-dynamic-workflows": "3.7.0",
     "@sherif-fanous/pi-catppuccin": "0.2.0",
     "@thinkscape/pi-status": "0.3.6",
@@ -40,6 +41,7 @@
     "@tintinweb/pi-subagents",
     "@tintinweb/pi-tasks",
     "@juicesharp/rpiv-ask-user-question",
+    "@juicesharp/rpiv-btw",
     "@sherif-fanous/pi-catppuccin",
     "pi-cc-extensions",
     "pi-mcp-adapter",
@@ -71,6 +73,7 @@
       "./extensions/pi-statusline/index.ts",
       "./extensions/pi-status/index.ts",
       "./extensions/rpiv-ask-user-question/index.ts",
+      "./extensions/rpiv-btw/index.ts",
       "./extensions/pi-cc-extensions/index.ts",
       "./extensions/pi-dynamic-workflows/index.ts",
       "./extensions/pi-inline-skills/index.ts",

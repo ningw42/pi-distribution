@@ -176,6 +176,7 @@ try {
     "extensions/pi-statusline/index.ts",
     "extensions/pi-status/index.ts",
     "extensions/rpiv-ask-user-question/index.ts",
+    "extensions/rpiv-btw/index.ts",
     "extensions/pi-cc-extensions/index.ts",
     "extensions/pi-dynamic-workflows/index.ts",
     "extensions/pi-inline-skills/index.ts",
@@ -189,6 +190,9 @@ try {
     "vendor/pi-statusline/index.ts",
     "node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
     "node_modules/@juicesharp/rpiv-ask-user-question/LICENSE",
+    "node_modules/@juicesharp/rpiv-btw/index.ts",
+    "node_modules/@juicesharp/rpiv-btw/LICENSE",
+    "node_modules/@juicesharp/rpiv-btw/prompts/btw-system.txt",
     "node_modules/pi-cc-extensions/extensions/index.ts",
     "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
     "node_modules/@quintinshaw/pi-dynamic-workflows/package.json",
@@ -265,6 +269,7 @@ try {
   const commandNames = new Set(commands.filter((command) => command.source === "extension").map((command) => command.name));
   for (const expectedCommand of [
     "agents",
+    "btw",
     "loaded-skills",
     "tasks",
     "mcp",

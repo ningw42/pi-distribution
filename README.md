@@ -14,6 +14,7 @@ The package exposes extensions through a uniform forwarding-shim layer, skills, 
 | `pi-statusline` | Package-maintained portable statusline | repository version |
 | `pi-status` | npm dependency `@thinkscape/pi-status`; drives the terminal tab title and Ghostty OSC 9;4 progress bar | `package.json` |
 | `rpiv-ask-user-question` | npm dependency `@juicesharp/rpiv-ask-user-question` | `package.json` |
+| `rpiv-btw` | npm dependency `@juicesharp/rpiv-btw`; adds `/btw` side questions in an ephemeral overlay | `package.json` |
 | `pi-cc-extensions` | npm dependency | `package.json` |
 | `pi-dynamic-workflows` | npm dependency `@quintinshaw/pi-dynamic-workflows` | `package.json` |
 | `pi-inline-skills` | npm dependency `@tifan/pi-inline-skills`; adds inline `/skill` autocomplete and loads referenced skills for the turn | `package.json` |

@@ -25,6 +25,7 @@ const expectedExtensions = [
   "./extensions/pi-statusline/index.ts",
   "./extensions/pi-status/index.ts",
   "./extensions/rpiv-ask-user-question/index.ts",
+  "./extensions/rpiv-btw/index.ts",
   "./extensions/pi-cc-extensions/index.ts",
   "./extensions/pi-dynamic-workflows/index.ts",
   "./extensions/pi-inline-skills/index.ts",
@@ -51,6 +52,7 @@ const expectedThemes = [
 ];
 const expectedDependencyNames = [
   "@juicesharp/rpiv-ask-user-question",
+  "@juicesharp/rpiv-btw",
   "@quintinshaw/pi-dynamic-workflows",
   "@sherif-fanous/pi-catppuccin",
   "@thinkscape/pi-status",
@@ -75,6 +77,7 @@ const shimTargets = {
   "extensions/pi-status/index.ts": "node_modules/@thinkscape/pi-status/src/index.ts",
   "extensions/rpiv-ask-user-question/index.ts":
     "node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
+  "extensions/rpiv-btw/index.ts": "node_modules/@juicesharp/rpiv-btw/index.ts",
   "extensions/pi-cc-extensions/index.ts": "node_modules/pi-cc-extensions/extensions/index.ts",
   "extensions/pi-dynamic-workflows/index.ts":
     "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
@@ -88,6 +91,7 @@ const shimTargets = {
 const dependencyTargets = {
   "node_modules/@juicesharp/rpiv-ask-user-question/index.ts":
     "@juicesharp/rpiv-ask-user-question",
+  "node_modules/@juicesharp/rpiv-btw/index.ts": "@juicesharp/rpiv-btw",
   "node_modules/pi-cc-extensions/extensions/index.ts": "pi-cc-extensions",
   "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts":
     "@quintinshaw/pi-dynamic-workflows",
@@ -173,6 +177,7 @@ for (const [path, target] of Object.entries(shimTargets)) {
 }
 for (const dependency of [
   "@juicesharp/rpiv-ask-user-question",
+  "@juicesharp/rpiv-btw",
   "@quintinshaw/pi-dynamic-workflows",
   "@sherif-fanous/pi-catppuccin",
   "@thinkscape/pi-status",
@@ -241,6 +246,19 @@ assert.equal(
   `https://registry.npmjs.org/${askName}/-/rpiv-ask-user-question-${askVersion}.tgz`,
 );
 assert.match(askLock.integrity, /^sha512-/);
+const btwName = "@juicesharp/rpiv-btw";
+const btwVersion = pkg.dependencies[btwName];
+const btwLock = lock.packages[`node_modules/${btwName}`];
+assert.equal(btwLock.version, btwVersion);
+assert.equal(
+  btwLock.resolved,
+  `https://registry.npmjs.org/${btwName}/-/rpiv-btw-${btwVersion}.tgz`,
+);
+assert.match(btwLock.integrity, /^sha512-/);
+const btwPackage = readJson(`node_modules/${btwName}/package.json`);
+assert.equal(btwPackage.license, "MIT");
+assert.deepEqual(btwPackage.pi?.extensions, ["./index.ts"]);
+
 const themePickerName = "pi-theme-picker";
 const themePickerVersion = pkg.dependencies[themePickerName];
 const themePickerLock = lock.packages[`node_modules/${themePickerName}`];
@@ -280,5 +298,5 @@ assert.match(
 );
 
 console.log(
-  `package checks passed: 11 extensions, 3 skills, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
+  `package checks passed: ${expectedExtensions.length} extensions, ${expectedSkills.length} skills, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
 );
