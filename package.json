@@ -24,7 +24,7 @@
   "dependencies": {
     "@juicesharp/rpiv-ask-user-question": "2.9.0",
     "@juicesharp/rpiv-btw": "2.9.0",
-    "@quintinshaw/pi-dynamic-workflows": "3.10.0",
+    "@quintinshaw/pi-dynamic-workflows": "3.10.1",
     "@sherif-fanous/pi-catppuccin": "0.2.0",
     "@thinkscape/pi-status": "0.3.6",
     "@tifan/pi-inline-skills": "1.0.5",
