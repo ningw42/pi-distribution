@@ -12,7 +12,7 @@ update_pi_rtk.yml -> generated pi-rtk update PR ------┘                       
 Human pushes a vYY.MM.N tag ---------------------------------------------------------------┘
 ```
 
-The publisher reacts only to tag pushes. Automatic tag pushes must use a non-`GITHUB_TOKEN` credential so GitHub starts the downstream release workflow.
+The publisher reacts only to tag pushes. When it creates a release, it asks GitHub to generate the description from merged pull requests since the previous release. Automatic tag pushes must use a non-`GITHUB_TOKEN` credential so GitHub starts the downstream release workflow.
 
 ## 1. Install the Renovate GitHub App
 
@@ -118,7 +118,7 @@ Then verify:
 3. The PR changes only files under `vendor/pi-rtk/`.
 4. CI passes and a human reviews and merges the PR.
 5. `tag_on_auto_update_merge.yml` creates the next `vYY.MM.N` annotated tag.
-6. `build_and_publish_release.yml` smoke-tests native Windows x64 and ARM64 packages, then publishes the corresponding GitHub Release with both `.tgz` assets and SHA-256 checksum files.
+6. `build_and_publish_release.yml` smoke-tests native Windows x64 and ARM64 packages, then publishes the corresponding GitHub Release with generated pull-request notes, both `.tgz` assets, and SHA-256 checksum files.
 
 A no-change updater run is also successful; it simply opens no PR.
 

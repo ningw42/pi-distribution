@@ -134,7 +134,7 @@ jobs:
             (cd dist && sha256sum --check "pi-distribution-$TAG-windows-$architecture.tgz.sha256")
           done
 
-      - name: Create GitHub Release if absent
+      - name: Create GitHub Release with generated notes if absent
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -154,7 +154,8 @@ jobs:
             tag_name: $tag,
             name: $tag,
             draft: false,
-            prerelease: false
+            prerelease: false,
+            generate_release_notes: true
           }')"
           if gh api --method POST "repos/$REPOSITORY/releases" --input - <<< "$payload"; then
             echo "Published GitHub Release $TAG."
