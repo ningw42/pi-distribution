@@ -29,6 +29,7 @@ const expectedExtensions = [
   "./extensions/pi-cc-extensions/index.ts",
   "./extensions/pi-dynamic-workflows/index.ts",
   "./extensions/pi-inline-skills/index.ts",
+  "./extensions/pi-input-history/index.ts",
   "./extensions/pi-mcp-adapter/index.ts",
   "./extensions/pi-theme-picker/index.ts",
   "./extensions/pi-subagents/index.ts",
@@ -60,6 +61,7 @@ const expectedDependencyNames = [
   "@tintinweb/pi-subagents",
   "@tintinweb/pi-tasks",
   "pi-cc-extensions",
+  "pi-input-history",
   "pi-mcp-adapter",
   "pi-theme-picker",
 ];
@@ -83,6 +85,7 @@ const shimTargets = {
     "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
   "extensions/pi-inline-skills/index.ts":
     "node_modules/@tifan/pi-inline-skills/src/index.ts",
+  "extensions/pi-input-history/index.ts": "node_modules/pi-input-history/index.ts",
   "extensions/pi-mcp-adapter/index.ts": "node_modules/pi-mcp-adapter/index.ts",
   "extensions/pi-theme-picker/index.ts": "node_modules/pi-theme-picker/index.ts",
   "extensions/pi-subagents/index.ts": "node_modules/@tintinweb/pi-subagents/src/index.ts",
@@ -98,6 +101,7 @@ const dependencyTargets = {
   "node_modules/pi-mcp-adapter/index.ts": "pi-mcp-adapter",
   "node_modules/@thinkscape/pi-status/src/index.ts": "@thinkscape/pi-status",
   "node_modules/@tifan/pi-inline-skills/src/index.ts": "@tifan/pi-inline-skills",
+  "node_modules/pi-input-history/index.ts": "pi-input-history",
   "node_modules/pi-theme-picker/index.ts": "pi-theme-picker",
   "node_modules/@tintinweb/pi-subagents/src/index.ts": "@tintinweb/pi-subagents",
   "node_modules/@tintinweb/pi-tasks/src/index.ts": "@tintinweb/pi-tasks",
@@ -182,6 +186,7 @@ for (const dependency of [
   "@sherif-fanous/pi-catppuccin",
   "@thinkscape/pi-status",
   "@tifan/pi-inline-skills",
+  "pi-input-history",
   "pi-theme-picker",
 ]) {
   assert.equal(
@@ -268,6 +273,19 @@ assert.equal(
   `https://registry.npmjs.org/${themePickerName}/-/pi-theme-picker-${themePickerVersion}.tgz`,
 );
 assert.match(themePickerLock.integrity, /^sha512-/);
+
+const inputHistoryName = "pi-input-history";
+const inputHistoryVersion = pkg.dependencies[inputHistoryName];
+const inputHistoryLock = lock.packages[`node_modules/${inputHistoryName}`];
+assert.equal(inputHistoryLock.version, inputHistoryVersion);
+assert.equal(
+  inputHistoryLock.resolved,
+  `https://registry.npmjs.org/${inputHistoryName}/-/pi-input-history-${inputHistoryVersion}.tgz`,
+);
+assert.match(inputHistoryLock.integrity, /^sha512-/);
+const inputHistoryPackage = readJson(`node_modules/${inputHistoryName}/package.json`);
+assert.equal(inputHistoryPackage.license, "MIT");
+assert.deepEqual(inputHistoryPackage.pi, { extensions: ["./index.ts"] });
 
 const rtkMetadata = readJson("vendor/pi-rtk/metadata.json");
 assert.equal(rtkMetadata.schemaVersion, 1);
