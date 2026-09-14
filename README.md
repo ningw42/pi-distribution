@@ -11,7 +11,7 @@ The package exposes extensions through a uniform forwarding-shim layer, skills, 
 | Extension | Implementation source | Version source |
 |---|---|---|
 | `pi-rtk` | Canonical generated Pi integration from `rtk-ai/rtk` | [`vendor/pi-rtk/metadata.json`](vendor/pi-rtk/metadata.json) |
-| `pi-statusline` | Package-maintained portable statusline | repository version |
+| `pi-statusline` | Package-maintained portable statusline consuming the pure `tps.ts` module from the pinned `@everyx/pi-status-line` dependency for TTFT and decode TPS | repository version; module pin in `package.json` |
 | `pi-status` | npm dependency `@thinkscape/pi-status`; drives the terminal tab title and Ghostty OSC 9;4 progress bar | `package.json` |
 | `rpiv-ask-user-question` | npm dependency `@juicesharp/rpiv-ask-user-question` | `package.json` |
 | `rpiv-btw` | npm dependency `@juicesharp/rpiv-btw`; adds `/btw` side questions in an ephemeral overlay | `package.json` |
@@ -25,6 +25,10 @@ The package exposes extensions through a uniform forwarding-shim layer, skills, 
 | `pi-tasks` | npm dependency `@tintinweb/pi-tasks` | `package.json` |
 
 Every public extension entry is `extensions/<name>/index.ts`. The entries only forward to a local implementation under `vendor/` or to a pinned package under `node_modules/`, which keeps Pi's displayed extension names stable.
+
+The statusline imports the pure `tps.ts` metrics module from the pinned
+`@everyx/pi-status-line` dependency. That package's own Pi extension entry is
+not exposed, and Pi does not activate dependency manifests.
 
 ### Skills and themes
 
@@ -157,7 +161,7 @@ npm test
 npm run smoke
 ```
 
-Renovate groups both kinds of update into one reviewed PR. The unscoped npm packages `pi-subagents` and `pi-tasks` are unrelated projects. Continue using `@tintinweb/pi-subagents` and `@tintinweb/pi-tasks`.
+Renovate groups both kinds of update into one reviewed PR. The unscoped npm packages `pi-subagents` and `pi-tasks` are unrelated projects. Continue using `@tintinweb/pi-subagents` and `@tintinweb/pi-tasks`. `@everyx/pi-status-line` supplies the statusline's `tps.ts` metrics module, so the grouped dependency update covers it like any other pinned dependency.
 
 ### RTK
 

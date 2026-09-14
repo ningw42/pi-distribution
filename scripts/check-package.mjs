@@ -52,6 +52,7 @@ const expectedThemes = [
   catppuccinThemeDirectory,
 ];
 const expectedDependencyNames = [
+  "@everyx/pi-status-line",
   "@juicesharp/rpiv-ask-user-question",
   "@juicesharp/rpiv-btw",
   "@quintinshaw/pi-dynamic-workflows",
@@ -264,6 +265,30 @@ const btwPackage = readJson(`node_modules/${btwName}/package.json`);
 assert.equal(btwPackage.license, "MIT");
 assert.deepEqual(btwPackage.pi?.extensions, ["./index.ts"]);
 
+const everyxName = "@everyx/pi-status-line";
+const everyxVersion = pkg.dependencies[everyxName];
+const everyxLock = lock.packages[`node_modules/${everyxName}`];
+assert.equal(everyxLock.version, everyxVersion);
+assert.equal(
+  everyxLock.resolved,
+  `https://registry.npmjs.org/${everyxName}/-/pi-status-line-${everyxVersion}.tgz`,
+);
+assert.match(everyxLock.integrity, /^sha512-/);
+const everyxPackage = readJson(`node_modules/${everyxName}/package.json`);
+assert.equal(everyxPackage.name, everyxName);
+assert.equal(everyxPackage.license, "MIT");
+assert.equal(existsSync(join(root, `node_modules/${everyxName}/tps.ts`)), true);
+// Only the pure metrics module is consumed from this dependency. Its own Pi
+// extension entry must stay unexposed, so no aggregate shim may forward to it.
+assert.deepEqual(everyxPackage.pi, { extensions: ["./index.ts"] });
+for (const shimPath of Object.keys(shimTargets)) {
+  assert.equal(
+    readText(shimPath).includes(everyxName),
+    false,
+    `${shimPath} must not expose the @everyx/pi-status-line footer extension`,
+  );
+}
+
 const themePickerName = "pi-theme-picker";
 const themePickerVersion = pkg.dependencies[themePickerName];
 const themePickerLock = lock.packages[`node_modules/${themePickerName}`];
@@ -313,6 +338,11 @@ assert.equal(statusline.includes("@starshipBin@"), false, "the statusline must n
 assert.match(
   statusline,
   /const STARSHIP_BIN = process\.env\.PI_STATUSLINE_STARSHIP \|\| "starship";/,
+);
+assert.match(
+  statusline,
+  /import \{ TurnMetrics \} from "@everyx\/pi-status-line\/tps\.ts";/,
+  "the statusline must consume the pinned dependency's pure metrics module",
 );
 
 console.log(

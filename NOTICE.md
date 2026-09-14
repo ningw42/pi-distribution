@@ -13,10 +13,23 @@ License: Apache License 2.0. A copy is stored at `vendor/pi-rtk/LICENSE`.
 The aggregate exposes the implementation under the local name `pi-rtk`; the
 vendored implementation itself is unmodified.
 
+## Statusline generation metrics
+
+`@everyx/pi-status-line` is consumed from the pinned npm dependency. Only its
+pure `tps.ts` metrics module is imported by `vendor/pi-statusline/index.ts`;
+the package's own footer extension (`index.ts`) is not exposed as an aggregate
+extension, and Pi does not activate dependency manifests.
+
+Upstream: <https://github.com/everyx/pi-extensions>
+
+License: MIT. The license file remains in the installed package directory at
+`node_modules/@everyx/pi-status-line/LICENSE`.
+
 ## Pi statusline
 
 `vendor/pi-statusline/index.ts` is the package-maintained Pi footer extension.
-It resolves Starship portably through `PATH` while retaining
+It consumes the pinned dependency's metrics module for its TTFT and decode TPS
+slot, and resolves Starship portably through `PATH` while retaining
 `PI_STATUSLINE_STARSHIP` as an explicit binary override.
 
 ## Inline skills
@@ -60,6 +73,7 @@ The remaining extension implementations and their public Pi resources are
 dependencies recorded in `package.json` and `package-lock.json`; they are not
 copied into `vendor/`:
 
+- `@everyx/pi-status-line` (MIT)
 - `@juicesharp/rpiv-ask-user-question` (MIT)
 - `@juicesharp/rpiv-btw` (MIT)
 - `pi-cc-extensions`
@@ -82,5 +96,6 @@ directory, and all four themes from `@sherif-fanous/pi-catppuccin`. Their
 upstream license files, supporting skill and theme files, and package metadata
 remain within their installed or bundled package directories. The bundled
 `@juicesharp/rpiv-ask-user-question`, `@juicesharp/rpiv-btw`,
-`@sherif-fanous/pi-catppuccin`, `@thinkscape/pi-status`, `pi-input-history`, and
-`pi-theme-picker` packages include their MIT licenses.
+`@sherif-fanous/pi-catppuccin`, `@thinkscape/pi-status`, `pi-input-history`,
+`pi-theme-picker`, and `@everyx/pi-status-line` packages include their MIT
+licenses.

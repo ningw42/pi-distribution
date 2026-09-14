@@ -8,15 +8,25 @@
  * numbers from `ctx` (sessionManager / model / context usage) plus
  * `pi.getThinkingLevel()`. This file reproduces the same LOOK:
  *
- *   <starship: dir + git>            $cost  ↑all-in (󰮆 non-cache-read 󱤟 cache%) ↓out  ▰▰▱▱ pct% used/limit  Model  effort
- *   └────────── left ──────────┘     └─────────────────── right group, flex-right ─────────┘
+ *   <starship: dir + git>   $cost  ↑all-in (󰮆 non-cache-read 󱤟 cache%) ↓out (󱐋 82.3 T/s)  ▰▰▱▱ pct% used/limit  Model  effort
+ *   └────────── left ──────────┘   └───────────────────────────── right group, flex-right ─────────────────────────────┘
  *
- * Colours are catppuccin-mocha (teal / maroon / flamingo), emitted as raw
- * 24-bit ANSI so they match statusline.py exactly rather than mapping onto pi's
- * semantic theme names. The left side shells out to `starship module …` exactly
- * like the python, but caches the result (refreshed on session start, git
- * branch change, and turn end) since the footer re-renders far more often than a
- * one-shot CLI statusline.
+ * The parenthesised suffix on the output count reports the generation phase:
+ * while a turn's first token is pending it counts the in-progress TTFT
+ * ("(󱦟 1.4s)") from the same `turn_start` anchor `tps.ts` (the pinned
+ * `@everyx/pi-status-line` dependency) uses; the first token swaps it to the
+ * live decode rate, and the finalized message freezes that rate to the
+ * provider's exact output count. Rates are cached rather than recomputed
+ * against render-time `Date.now()`, so a repaint while typing cannot make a
+ * frozen number drift; the wait clock is the deliberate exception, since it
+ * exists to grow.
+ *
+ * Colours are catppuccin-mocha (teal / sapphire / maroon / flamingo),
+ * emitted as raw 24-bit ANSI so they match statusline.py exactly rather than
+ * mapping onto pi's semantic theme names. The left side shells out to
+ * `starship module …` exactly like the python, but caches the result (refreshed
+ * on session start, git branch change, and turn end) since the footer
+ * re-renders far more often than a one-shot CLI statusline.
  *
  * Caveat vs claude-code: cost is summed from pi's per-model `cost` config, which
  * for the Copilot-backed catalog is NOTIONAL (flat-rate subscription), so the
@@ -27,6 +37,8 @@ import type { Usage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { execFile } from "node:child_process";
+
+import { TurnMetrics } from "@everyx/pi-status-line/tps.ts";
 
 // --- colour primitives (catppuccin-mocha, raw 24-bit ANSI) -------------------
 
@@ -50,11 +62,14 @@ const RESET = "\x1b[0m";
 const CTX_EMPTY = ["\uee00", "\uee01", "\uee02"];
 const CTX_FILLED = ["\uee03", "\uee04", "\uee05"];
 
-// Nerd Font icons labelling the non-cache-read input and cache hit rate inside
-// the token section's parentheses. Written as escapes so the source survives
-// encoding and HTML round-trips.
+// Nerd Font icons labelling the values attached to the token section:
+// non-cache-read input and cache-hit rate inside the input parentheses, plus the
+// prefill wait and decode rate on the output suffix. Written as escapes so the
+// source survives encoding and HTML round-trips.
 const NON_CACHE_READ_ICON = "\u{f0b86}";
 const CACHE_HIT_ICON = "\u{f191f}";
+const TTFT_ICON = "\u{f199f}";
+const TPS_ICON = "\u{f140b}";
 
 // --- number / text helpers (ports of statusline.py) --------------------------
 
@@ -73,6 +88,16 @@ function fmtTokens(n: number): string {
 	if (n >= 1_000_000) return `${num(jround((n / 1_000_000) * 10) / 10)}M`;
 	if (n >= 1_000) return `${num(jround((n / 1_000) * 10) / 10)}k`;
 	return num(n);
+}
+
+/** Decode speed for the live segment: "82.3 T/s", widening to integers at 100+. */
+function fmtTps(tps: number): string {
+	return `${tps >= 100 ? tps.toFixed(0) : tps.toFixed(1)} T/s`;
+}
+
+/** Prefill wait in seconds for the output suffix: "0.0s" through "10.5s". */
+function fmtTtft(ms: number): string {
+	return `${(ms / 1000).toFixed(1)}s`;
 }
 
 /** Render a `width`-cell PUA progress bar filled to `pct` percent. */
@@ -185,6 +210,7 @@ function cacheHitRate(metrics: Metrics): number | null {
 
 function renderRight(
 	metrics: Metrics,
+	outputSuffix: string | null,
 	pct: number | null,
 	contextTokens: number | null,
 	limit: number,
@@ -207,7 +233,11 @@ function renderRight(
 		hitRate === null
 			? ""
 			: ` ${CACHE_HIT_ICON} ${(jround(hitRate * 1000) / 10).toFixed(1)}%`;
-	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)} (${NON_CACHE_READ_ICON} ${fmtTokens(nonCacheReadInput)}${cacheHit}) ↓${fmtTokens(metrics.output)}${RESET}`;
+	// The generation suffix rides the output count: the in-progress TTFT while
+	// the first token is pending, the decode rate afterwards. Omitted until a
+	// turn starts, like the cache-hit rate inside the input parentheses above.
+	const suffix = outputSuffix === null ? "" : ` (${outputSuffix})`;
+	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)} (${NON_CACHE_READ_ICON} ${fmtTokens(nonCacheReadInput)}${cacheHit}) ↓${fmtTokens(metrics.output)}${suffix}${RESET}`;
 	const context =
 		pct === null || contextTokens === null
 			? `?% ?/${fmtTokens(limit)}`
@@ -224,9 +254,86 @@ function renderRight(
 
 // --- extension ---------------------------------------------------------------
 
+/**
+ * Text carried by a streaming update, or null for lifecycle-only events
+ * (`text_start`, `text_end`, …). Decode speed counts text, thinking, and
+ * streamed tool-call arguments alike -- all of them are generated output.
+ */
+function streamDelta(event: { assistantMessageEvent: { delta?: unknown } }): string | null {
+	const delta = event.assistantMessageEvent.delta;
+	return typeof delta === "string" && delta.length > 0 ? delta : null;
+}
+
 export default function (pi: ExtensionAPI) {
 	let left = "";
 	let requestRender: (() => void) | undefined;
+
+	// Live generation metrics: the pinned dependency's module owns the decode
+	// clock (and the same `turn_start` anchor its TTFT uses), this file owns the
+	// rendered text and the in-progress wait clock.
+	const generation = new TurnMetrics();
+	let turnStartedAt: number | null = null;
+	let tpsText: string | null = null;
+	let lastRenderRequestMs = 0;
+	let waitTicker: ReturnType<typeof setInterval> | undefined;
+
+	// collectMetrics walks every session entry, and streaming now repaints many
+	// times per turn; cache the totals between appends and finalized messages.
+	let cachedEntriesLength = -1;
+	let cachedMetrics: Metrics | null = null;
+
+	const metricsFor = (entries: ReadonlyArray<SessionEntry>): Metrics => {
+		if (cachedMetrics === null || entries.length !== cachedEntriesLength) {
+			cachedMetrics = collectMetrics(entries);
+			cachedEntriesLength = entries.length;
+		}
+		return cachedMetrics;
+	};
+
+	const invalidateMetrics = (): void => {
+		cachedMetrics = null;
+		cachedEntriesLength = -1;
+	};
+
+	// Repaints happen per keystroke and per stream delta; coalesce the stream
+	// nudges. Turn boundaries render unconditionally.
+	const requestRenderThrottled = (now: number): void => {
+		if (now - lastRenderRequestMs < 100) return;
+		lastRenderRequestMs = now;
+		requestRender?.();
+	};
+
+	// While a turn's first token is in flight no stream events arrive, so a
+	// ticker keeps the wait clock moving. It exists only for that window, and
+	// every terminal event clears it.
+	const stopWaitTicker = (): void => {
+		if (waitTicker === undefined) return;
+		clearInterval(waitTicker);
+		waitTicker = undefined;
+	};
+
+	const startWaitTicker = (): void => {
+		stopWaitTicker();
+		waitTicker = setInterval(() => requestRender?.(), 100);
+	};
+
+	// The output suffix reports the phase rather than a combined readout: while
+	// the first token is pending it counts the in-progress TTFT, afterwards it
+	// shows the decode rate. Omitted entirely before the session's first turn.
+	// The wait clock is computed at render time on purpose -- being a clock, it
+	// should track wall time.
+	const renderGeneration = (now: number): string | null => {
+		if (turnStartedAt !== null) return `${TTFT_ICON} ${fmtTtft(now - turnStartedAt)}`;
+		return tpsText === null ? null : `${TPS_ICON} ${tpsText}`;
+	};
+
+	const resetGeneration = (): void => {
+		stopWaitTicker();
+		generation.clear();
+		turnStartedAt = null;
+		tpsText = null;
+		invalidateMetrics();
+	};
 
 	// Recompute the cached starship left side, then nudge a re-render.
 	const refreshLeft = (cwd: string) => {
@@ -238,12 +345,63 @@ export default function (pi: ExtensionAPI) {
 		});
 	};
 
+	pi.on("turn_start", async () => {
+		const now = Date.now();
+		generation.startTurn(now);
+		turnStartedAt = now;
+		startWaitTicker();
+		lastRenderRequestMs = 0;
+		requestRender?.();
+	});
+
+	pi.on("message_update", async (event) => {
+		const delta = streamDelta(event);
+		if (delta === null) return;
+
+		const now = Date.now();
+		generation.addDelta(delta, now);
+
+		// The first delta ends the wait phase: the slot hands over from the TTFT
+		// clock to the decode rate.
+		turnStartedAt = null;
+		stopWaitTicker();
+
+		// A null rate (inside the module's 250ms debounce) keeps the previous
+		// text rather than collapsing the segment to a placeholder.
+		const tps = generation.liveTps(now);
+		if (tps !== null) tpsText = fmtTps(tps);
+		requestRenderThrottled(now);
+	});
+
+	pi.on("message_end", async (event) => {
+		invalidateMetrics();
+		// A finalized assistant message can carry the provider's exact output
+		// count; the module prefers it over the chars estimate when present.
+		if (event.message.role === "assistant") {
+			turnStartedAt = null;
+			stopWaitTicker();
+			const tps = generation.averageTps(Date.now(), event.message.usage?.output);
+			if (tps !== null) tpsText = fmtTps(tps);
+		}
+		requestRender?.();
+	});
+
+	// Esc or a failed request can end a run while the first token is still
+	// pending; the wait ticker must not outlive its turn.
+	pi.on("agent_end", async () => {
+		turnStartedAt = null;
+		stopWaitTicker();
+		requestRender?.();
+	});
+
 	pi.on("session_start", async (_event, ctx) => {
+		resetGeneration();
 		refreshLeft(ctx.cwd);
 
 		ctx.ui.setFooter((tui, _theme, footerData) => {
 			requestRender = () => tui.requestRender();
 			const unsub = footerData.onBranchChange(() => {
+				invalidateMetrics();
 				refreshLeft(ctx.cwd);
 				tui.requestRender();
 			});
@@ -252,7 +410,7 @@ export default function (pi: ExtensionAPI) {
 				dispose: unsub,
 				invalidate() {},
 				render(width: number): string[] {
-					const metrics = collectMetrics(ctx.sessionManager.getEntries());
+					const metrics = metricsFor(ctx.sessionManager.getEntries());
 					const usage = ctx.getContextUsage();
 					const pct = usage?.percent ?? null;
 					const contextTokens = usage?.tokens ?? null;
@@ -260,7 +418,15 @@ export default function (pi: ExtensionAPI) {
 					const model = ctx.model?.name || ctx.model?.id || "";
 					const effort = pi.getThinkingLevel();
 
-					const right = renderRight(metrics, pct, contextTokens, limit, model, effort);
+					const right = renderRight(
+						metrics,
+						renderGeneration(Date.now()),
+						pct,
+						contextTokens,
+						limit,
+						model,
+						effort,
+					);
 					const gap = Math.max(1, width - visibleWidth(left) - visibleWidth(right));
 					return [truncateToWidth(left + " ".repeat(gap) + right, width)];
 				},
@@ -270,5 +436,13 @@ export default function (pi: ExtensionAPI) {
 
 	// Working-tree state (git_status / git_metrics) drifts as the agent edits
 	// files; refresh after each turn so the cached left side stays honest.
-	pi.on("turn_end", async (_event, ctx) => refreshLeft(ctx.cwd));
+	pi.on("turn_end", async (_event, ctx) => {
+		turnStartedAt = null;
+		stopWaitTicker();
+		invalidateMetrics();
+		requestRender?.();
+		refreshLeft(ctx.cwd);
+	});
+
+	pi.on("session_shutdown", async () => resetGeneration());
 }
