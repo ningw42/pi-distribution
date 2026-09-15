@@ -11,6 +11,9 @@
  *   <starship: dir + git>   $cost  ↑all-in (󰮆 non-cache-read 󱤟 cache%) ↓out (󱐋 82.3 T/s)  ▰▰▱▱ pct% used/limit  Model  effort
  *   └────────── left ──────────┘   └───────────────────────────── right group, flex-right ─────────────────────────────┘
  *
+ * When that layout does not fit, use three independently truncated rows:
+ * Starship left; tokens + cost; model + effort + context.
+ *
  * The parenthesised suffix on the output count reports the generation phase:
  * while a turn's first token is pending it counts the in-progress TTFT
  * ("(󱦟 1.4s)") from the same `turn_start` anchor `tps.ts` (the pinned
@@ -208,7 +211,15 @@ function cacheHitRate(metrics: Metrics): number | null {
 	return Math.max(0, Math.min(1, metrics.cacheRead / allInput));
 }
 
-function renderRight(
+interface RightSegments {
+	cost: string;
+	tokens: string;
+	context: string;
+	model: string;
+	effort: string;
+}
+
+function renderRightSegments(
 	metrics: Metrics,
 	outputSuffix: string | null,
 	pct: number | null,
@@ -216,7 +227,7 @@ function renderRight(
 	limit: number,
 	model: string,
 	effort: string,
-): string {
+): RightSegments {
 	const allInput = metrics.input + metrics.cacheRead + metrics.cacheWrite;
 	// This excludes only cache hits. It includes normal input and cache writes,
 	// both of which are more directly tied to spend than cache-read input.
@@ -242,14 +253,13 @@ function renderRight(
 		pct === null || contextTokens === null
 			? `?% ?/${fmtTokens(limit)}`
 			: `${contextBar(pct)} ${num(Math.round(pct))}% ${fmtTokens(contextTokens)}/${fmtTokens(limit)}`;
-	const segs = [
-		`${TEAL}$${metrics.cost.toFixed(2)}${RESET}`,
+	return {
+		cost: `${TEAL}$${metrics.cost.toFixed(2)}${RESET}`,
 		tokens,
-		`${FLAMINGO}${context}${RESET}`,
-		`${MAROON}${model}${RESET}`,
-		`${MAROON}${effort}${RESET}`,
-	];
-	return segs.join(" ");
+		context: `${FLAMINGO}${context}${RESET}`,
+		model: `${MAROON}${model}${RESET}`,
+		effort: `${MAROON}${effort}${RESET}`,
+	};
 }
 
 // --- extension ---------------------------------------------------------------
@@ -418,7 +428,7 @@ export default function (pi: ExtensionAPI) {
 					const model = ctx.model?.name || ctx.model?.id || "";
 					const effort = pi.getThinkingLevel();
 
-					const right = renderRight(
+					const segments = renderRightSegments(
 						metrics,
 						renderGeneration(Date.now()),
 						pct,
@@ -427,8 +437,16 @@ export default function (pi: ExtensionAPI) {
 						model,
 						effort,
 					);
-					const gap = Math.max(1, width - visibleWidth(left) - visibleWidth(right));
-					return [truncateToWidth(left + " ".repeat(gap) + right, width)];
+					const right = [segments.cost, segments.tokens, segments.context, segments.model, segments.effort].join(" ");
+					const gap = width - visibleWidth(left) - visibleWidth(right);
+					if (gap >= 1) {
+						return [truncateToWidth(left + " ".repeat(gap) + right, width)];
+					}
+					return [
+						left,
+						`${segments.tokens} ${segments.cost}`,
+						`${segments.model} ${segments.effort} ${segments.context}`,
+					].map((line) => truncateToWidth(line, width));
 				},
 			};
 		});

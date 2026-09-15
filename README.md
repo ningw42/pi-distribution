@@ -30,6 +30,17 @@ The statusline imports the pure `tps.ts` metrics module from the pinned
 `@everyx/pi-status-line` dependency. That package's own Pi extension entry is
 not exposed, and Pi does not activate dependency manifests.
 
+The statusline keeps its single-line layout whenever the rendered content fits
+with at least one space between its left and right sections. Otherwise, it uses
+three left-aligned rows:
+
+1. Starship directory and all Git segments.
+2. Tokens (including the generation suffix), then cost.
+3. Model, effort, then context.
+
+The layout is recalculated on each render, including terminal resizes. Each row
+is truncated to the available width rather than wrapped further.
+
 ### Skills and themes
 
 | Resource | Type | Implementation source | Purpose |
