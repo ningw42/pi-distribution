@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   validateNpmUpdate,
   validateNpmUpdates,
-} from "../scripts/validate-npm-update.mjs";
+} from "../../scripts/validate-npm-update.mjs";
 
 const basePackage = {
   name: "fixture",

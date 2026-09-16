@@ -57,6 +57,9 @@ jobs:
           node-version: 24
           architecture: ${{ matrix.architecture }}
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            tests/smoke-runtime/package-lock.json
 
       - name: Use the repository npm version
         shell: pwsh
@@ -68,13 +71,13 @@ jobs:
 
       - name: Install smoke-test Pi runtime
         shell: pwsh
-        run: npm --prefix tests/smoke-runtime ci --ignore-scripts
+        run: npm --prefix tests/smoke-runtime ci --include=dev --ignore-scripts
 
-      - name: Build and smoke-test offline artifact
+      - name: Run all tests and build verified offline artifact
         env:
           SMOKE_PACK_DESTINATION: ${{ runner.temp }}/pi-distribution-pack
         shell: pwsh
-        run: npm run smoke
+        run: npm run test:all
 
       - name: Name and checksum tested artifact
         id: artifact

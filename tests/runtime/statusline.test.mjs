@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
-import { createRequire, syncBuiltinESMExports } from "node:module";
+import { syncBuiltinESMExports } from "node:module";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { getPiRuntime } from "../helpers/pi-runtime.mjs";
+
 // Use Pi's independently locked loader and real ANSI/column-width utilities.
-const runtimeRequire = createRequire(
-  new URL("./smoke-runtime/node_modules/@earendil-works/pi-coding-agent/package.json", import.meta.url),
-);
-const { createJiti } = runtimeRequire("jiti");
-const tui = await import(pathToFileURL(runtimeRequire.resolve("@earendil-works/pi-tui")));
+const runtime = getPiRuntime();
+const { createJiti } = await import(pathToFileURL(runtime.resolve("jiti")));
+const tui = await import(pathToFileURL(runtime.resolve("@earendil-works/pi-tui")));
 const { truncateToWidth, visibleWidth } = tui;
 const RESET = "\x1b[0m";
 const color = (rgb, text) => `\x1b[38;2;${rgb}m${text}${RESET}`;
@@ -48,7 +48,7 @@ async function createFooter(t) {
     moduleCache: false,
     virtualModules: { "@earendil-works/pi-tui": tui },
   });
-  const extension = await jiti.import("../extensions/pi-statusline/index.ts", { default: true });
+  const extension = await jiti.import("../../extensions/pi-statusline/index.ts", { default: true });
   const handlers = new Map();
   let footer;
   let requestRender;

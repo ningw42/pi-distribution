@@ -15,21 +15,12 @@ import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { getPiRuntime } from "../tests/helpers/pi-runtime.mjs";
+
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const rtkMetadata = JSON.parse(readFileSync(join(root, "vendor/pi-rtk/metadata.json"), "utf8"));
-const smokeRuntimeRoot = join(root, "tests", "smoke-runtime");
-const smokeRuntimePackage = JSON.parse(
-  readFileSync(join(smokeRuntimeRoot, "package.json"), "utf8"),
-);
-const piPackageDir = join(
-  smokeRuntimeRoot,
-  "node_modules",
-  "@earendil-works",
-  "pi-coding-agent",
-);
-const piPackage = JSON.parse(readFileSync(join(piPackageDir, "package.json"), "utf8"));
-const piCli = join(piPackageDir, piPackage.bin.pi);
+const { version: piVersion, cli: piCli } = getPiRuntime();
 const smokeProcessEnv = { ...process.env };
 delete smokeProcessEnv.PI_PACKAGE_DIR;
 const expectedSkillResources = pkg.pi.skills;
@@ -129,13 +120,7 @@ function rpcSmoke(source) {
 }
 
 try {
-  assert.equal(
-    piPackage.version,
-    smokeRuntimePackage.devDependencies["@earendil-works/pi-coding-agent"],
-    "the smoke test must use the independently locked Pi development dependency",
-  );
-  assert.equal(existsSync(piCli), true, `missing locked Pi CLI: ${piCli}`);
-  console.log(`using locked Pi ${piPackage.version}`);
+  console.log(`using locked Pi ${piVersion}`);
 
   run(process.execPath, [join(root, "scripts/check-package.mjs")]);
 

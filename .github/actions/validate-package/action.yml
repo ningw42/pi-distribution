@@ -9,6 +9,9 @@ runs:
       with:
         node-version: 24
         cache: npm
+        cache-dependency-path: |
+          package-lock.json
+          tests/smoke-runtime/package-lock.json
 
     - name: Use the repository npm version
       shell: bash
@@ -18,13 +21,17 @@ runs:
       shell: bash
       run: npm ci --ignore-scripts
 
+    - name: Run production-install-safe package tests
+      shell: bash
+      run: npm run test:package
+
     - name: Install smoke-test Pi runtime
       shell: bash
-      run: npm --prefix tests/smoke-runtime ci --ignore-scripts
+      run: npm --prefix tests/smoke-runtime ci --include=dev --ignore-scripts
 
-    - name: Run package checks
+    - name: Run Pi runtime tests
       shell: bash
-      run: npm test
+      run: npm run test:runtime
 
     - name: Run smoke test
       shell: bash

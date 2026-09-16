@@ -116,23 +116,38 @@ The themes are available after installation, but installation does not select on
 
 ## Development and verification
 
-Install the production package closure and the independently locked Pi smoke runtime, then run the static checks:
+Use Node.js 24 and the npm version recorded in `packageManager`. Run these commands from the repository root to install both locked dependency trees and execute the full development/release verification gate:
 
 ```bash
 npm ci --ignore-scripts
-npm --prefix tests/smoke-runtime ci --ignore-scripts
-npm test
+npm --prefix tests/smoke-runtime ci --include=dev --ignore-scripts
+npm run test:all
 ```
 
-Run the packed-artifact and real-Pi smoke test:
+The root lock contains only the production package closure consumed by installers; there are no root dev dependencies. The exact Pi version used for compatibility testing lives under `tests/smoke-runtime`, so Pi updates cannot add test-only packages to the production closure. The explicit `--include=dev` installs that runtime even with production-oriented npm configuration.
+
+| Command | Coverage | Prerequisites |
+|---|---|---|
+| `npm run test:unit` | Dependency-free Node tests in `tests/unit/` | Node only; neither dependency tree needs to be installed |
+| `npm run check` | Manifest, resources, shims, pins, locks, and vendored-source checks | Root production dependencies |
+| `npm run test:package` | `test:unit` + `check` | Root production dependencies only |
+| `npm run test:runtime` | Pi-dependent regression tests in `tests/runtime/`, including statusline layout with real ANSI/column-width utilities | Root production dependencies + smoke runtime |
+| `npm test` | `test:package` + `test:runtime` | Both dependency trees; preserves all regression-test coverage |
+| `npm run smoke` | Packed-artifact and real-Pi RPC verification | Both dependency trees, npm, and `tar` |
+| `npm run test:all` | `npm test` + `smoke` | Both dependency trees, npm, and `tar` |
+
+These are source-checkout commands. Production-only packagers such as Kura can run the complete package suite without installing the smoke runtime:
 
 ```bash
-npm run smoke
+npm ci --omit=dev --ignore-scripts
+npm run test:package
 ```
 
-The root lock contains only the production package closure consumed by installers. The exact Pi version used for compatibility testing lives under `tests/smoke-runtime`, so Pi updates cannot add test-only packages to the production closure.
+Offline builds must provision the root dependency closure in advance. The package suite reads the committed smoke-runtime manifest and lock, but does not require its `node_modules`. Test commands never install missing dependencies or silently skip a suite.
 
-The smoke test invokes the exact npm Pi development dependency from the lockfile. It does not use an ambient `pi` executable or `PI_PACKAGE_DIR`, so local and CI runs exercise the same Pi runtime.
+The runtime tests and smoke runner share a preflight that checks the installed Pi version and CLI. Missing or stale installations fail with the exact smoke-runtime install command above. Runtime tests resolve Pi's loader and TUI only from that installed tree, not ancestor or global modules. The smoke test invokes its locked Pi CLI, not an ambient `pi` executable or `PI_PACKAGE_DIR`, so local and CI runs exercise the same Pi runtime.
+
+CI runs `test:package` before installing the smoke runtime, then runs `test:runtime` and `smoke`. Native release jobs run `test:all`, retaining the exact tested tarball.
 
 The smoke test:
 
@@ -159,27 +174,28 @@ Update runtime dependencies together and keep exact versions:
 
 ```bash
 npm install --save-exact <package>@<version> [<package>@<version> ...]
-npm test
-npm run smoke
+npm --prefix tests/smoke-runtime ci --include=dev --ignore-scripts
+npm run test:all
 ```
 
 Update the independently locked Pi smoke runtime as an exact development dependency:
 
 ```bash
-npm --prefix tests/smoke-runtime install --save-dev --save-exact \
+npm ci --ignore-scripts
+npm --prefix tests/smoke-runtime install --save-dev --save-exact --include=dev --ignore-scripts \
   @earendil-works/pi-coding-agent@<version>
-npm test
-npm run smoke
+npm run test:all
 ```
 
 Renovate groups both kinds of update into one reviewed PR. The unscoped npm packages `pi-subagents` and `pi-tasks` are unrelated projects. Continue using `@tintinweb/pi-subagents` and `@tintinweb/pi-tasks`. `@everyx/pi-status-line` supplies the statusline's `tps.ts` metrics module, so the grouped dependency update covers it like any other pinned dependency.
 
 ### RTK
 
-Regenerate the vendored extension, synchronize its license, and record provenance from the locally installed RTK CLI with:
+With both dependency trees installed as above, regenerate the vendored extension, synchronize its license, record provenance from the locally installed RTK CLI, and verify the result:
 
 ```bash
 npm run update:pi-rtk
+npm run test:all
 ```
 
 Set `RTK_BIN=/absolute/path/to/rtk` to select a specific binary. The updater runs `rtk init -g --agent pi --no-patch` under a temporary home, verifies the generated source against the matching upstream tag, and updates only `vendor/pi-rtk/`.
