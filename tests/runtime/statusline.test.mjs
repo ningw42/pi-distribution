@@ -22,10 +22,14 @@ const starship = {
 const left = Object.values(starship).join(" ");
 const segments = {
   cost: color("148;226;213", "$1.25"),
-  tokens: color("116;199;236", "↑10k (\u{f0b86} 2k \u{f191f} 80.0%) ↓300"),
+  tokens: [
+    color("116;199;236", "↑10k"),
+    color("127;132;156", "(\u{f0b86} 2k \u{f191f} 80.0%)"),
+    color("116;199;236", "↓300"),
+  ].join(" "),
   context: color("242;205;205", "\uee03\uee04\uee04\uee01\uee01\uee01\uee01\uee01\uee01\uee02 25% 32k/128k"),
   model: color("235;160;172", "Test Model"),
-  effort: color("235;160;172", "high"),
+  effort: color("250;179;135", "high"),
 };
 const right = [segments.cost, segments.tokens, segments.context, segments.model, segments.effort].join(" ");
 const minimumWidth = visibleWidth(left) + 1 + visibleWidth(right);
@@ -90,7 +94,7 @@ function desktopRow(width) {
   return truncateToWidth(left + " ".repeat(width - visibleWidth(left) - visibleWidth(right)) + right, width);
 }
 
-test("preserves the existing single-line text, colors, order, and right alignment", async (t) => {
+test("renders the single-line text, colors, order, and right alignment", async (t) => {
   const { footer } = await createFooter(t);
   const width = minimumWidth + 30;
   assert.deepEqual(footer.render(width), [desktopRow(width)]);
@@ -151,7 +155,7 @@ test("keeps the generation suffix attached to tokens before cost in multiline mo
   const { footer, emit } = await createFooter(t);
   await emit("turn_start");
   now += 1_500;
-  const tokens = segments.tokens.replace(RESET, ` (\u{f199f} 1.5s)${RESET}`);
+  const tokens = `${segments.tokens} ${color("127;132;156", "(\u{f199f} 1.5s)")}`;
   assert.deepEqual(footer.render(minimumWidth), [
     `${tokens} ${segments.cost}`,
     mobileRows[1],

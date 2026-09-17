@@ -25,9 +25,9 @@
  * frozen number drift; the wait clock is the deliberate exception, since it
  * exists to grow.
  *
- * Colours are catppuccin-mocha (teal / sapphire / maroon / flamingo),
- * emitted as raw 24-bit ANSI so they match statusline.py exactly rather than
- * mapping onto pi's semantic theme names. The left side shells out to
+ * Colours are catppuccin-mocha (teal / sapphire / overlay 1 / maroon / peach /
+ * flamingo), emitted as raw 24-bit ANSI rather than mapping onto pi's semantic
+ * theme names. The left side shells out to
  * `starship module …` exactly like the python, but caches the result (refreshed
  * on session start, git branch change, and turn end) since the footer
  * re-renders far more often than a one-shot CLI statusline.
@@ -56,7 +56,9 @@ function fg(hex: string): string {
 
 const TEAL = fg("#94E2D5"); // cumulative cost
 const SAPPHIRE = fg("#74C7EC"); // cumulative token usage
-const MAROON = fg("#EBA0AC"); // model + effort
+const OVERLAY_1 = fg("#7F849C"); // secondary token details
+const MAROON = fg("#EBA0AC"); // model
+const PEACH = fg("#FAB387"); // effort
 const FLAMINGO = fg("#F2CDCD"); // context bar
 const RESET = "\x1b[0m";
 
@@ -248,8 +250,10 @@ function renderRightSegments(
 	// The generation suffix rides the output count: the in-progress TTFT while
 	// the first token is pending, the decode rate afterwards. Omitted until a
 	// turn starts, like the cache-hit rate inside the input parentheses above.
-	const suffix = outputSuffix === null ? "" : ` (${outputSuffix})`;
-	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)} (${NON_CACHE_READ_ICON} ${fmtTokens(nonCacheReadInput)}${cacheHit}) ↓${fmtTokens(metrics.output)}${suffix}${RESET}`;
+	// Both parenthesized groups use a muted palette color so the cumulative
+	// input and output totals remain the visual focus.
+	const suffix = outputSuffix === null ? "" : ` ${OVERLAY_1}(${outputSuffix})${RESET}`;
+	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)}${RESET} ${OVERLAY_1}(${NON_CACHE_READ_ICON} ${fmtTokens(nonCacheReadInput)}${cacheHit})${RESET} ${SAPPHIRE}↓${fmtTokens(metrics.output)}${RESET}${suffix}`;
 	const context =
 		pct === null || contextTokens === null
 			? `?% ?/${fmtTokens(limit)}`
@@ -259,7 +263,7 @@ function renderRightSegments(
 		tokens,
 		context: `${FLAMINGO}${context}${RESET}`,
 		model: `${MAROON}${model}${RESET}`,
-		effort: `${MAROON}${effort}${RESET}`,
+		effort: `${PEACH}${effort}${RESET}`,
 	};
 }
 
