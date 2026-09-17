@@ -30,13 +30,21 @@ The statusline imports the pure `tps.ts` metrics module from the pinned
 `@everyx/pi-status-line` dependency. That package's own Pi extension entry is
 not exposed, and Pi does not activate dependency manifests.
 
+Once a turn starts, the output suffix shows TTFT then decode speed together:
+`(󱦟 1.4s 󱐋 82.3 T/s)`. TTFT counts the pending wait, then freezes at the first
+text, thinking, or tool-call delta while speed updates alongside it. Unavailable
+readings use `—`; a request ending before its first token has no measured TTFT.
+Both readings remain after completion and reset for the next turn. The pair is
+hidden on session start/resume/reload until a new turn begins, keeping launch
+clean. Parentheses and their contents retain the dimmed secondary color.
+
 The statusline keeps its single-line layout whenever the rendered content fits
 with at least one space between its left and right sections. Otherwise, it uses
 three left-aligned rows:
 
-1. Starship directory and all Git segments.
-2. Tokens (including the generation suffix), then cost.
-3. Model, effort, then context.
+1. Tokens (including the generation suffix), then cost.
+2. Model, effort, then context.
+3. Starship directory and all Git segments.
 
 The layout is recalculated on each render, including terminal resizes. Each row
 is truncated to the available width rather than wrapped further.

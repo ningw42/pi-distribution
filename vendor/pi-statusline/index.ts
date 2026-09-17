@@ -8,22 +8,22 @@
  * numbers from `ctx` (sessionManager / model / context usage) plus
  * `pi.getThinkingLevel()`. This file reproduces the same LOOK:
  *
- *   <starship: dir + git>   $cost  ↑all-in (󰮆 non-cache-read 󱤟 cache%) ↓out (󱐋 82.3 T/s)  ▰▰▱▱ pct% used/limit  Model  effort
+ *   <starship: dir + git>   $cost  ↑all-in (󰮆 non-cache-read 󱤟 cache%) ↓out (󱦟 1.4s 󱐋 82.3 T/s)  ▰▰▱▱ pct% used/limit  Model  effort
  *   └────────── left ──────────┘   └───────────────────────────── right group, flex-right ─────────────────────────────┘
  *
  * When that layout does not fit, use three independently truncated rows,
  * ordered from most frequently changing to least: tokens + cost;
  * model + effort + context; Starship left.
  *
- * The parenthesised suffix on the output count reports the generation phase:
- * while a turn's first token is pending it counts the in-progress TTFT
- * ("(󱦟 1.4s)") from the same `turn_start` anchor `tps.ts` (the pinned
- * `@everyx/pi-status-line` dependency) uses; the first token swaps it to the
- * live decode rate, and the finalized message freezes that rate to the
- * provider's exact output count. Rates are cached rather than recomputed
- * against render-time `Date.now()`, so a repaint while typing cannot make a
- * frozen number drift; the wait clock is the deliberate exception, since it
- * exists to grow.
+ * The parenthesised suffix on the output count shows TTFT then decode speed
+ * together ("(󱦟 1.4s 󱐋 82.3 T/s)"). It stays hidden until a turn starts.
+ * While the first token is pending, TTFT counts the in-progress wait from the
+ * same `turn_start` anchor `tps.ts` (the pinned `@everyx/pi-status-line`
+ * dependency) uses; the first token freezes TTFT while decode speed updates
+ * alongside it. Unavailable readings use "—", not a fabricated zero. The
+ * finalized message freezes the rate using the provider's exact output count.
+ * Both readings persist until the next turn or session reset; repaints cannot
+ * make them drift. Only the in-progress wait uses render-time `Date.now()`.
  *
  * Colours are catppuccin-mocha (teal / sapphire / overlay 1 / maroon / peach /
  * flamingo), emitted as raw 24-bit ANSI rather than mapping onto pi's semantic
@@ -252,9 +252,8 @@ function renderRightSegments(
 		cacheHit,
 	].filter(Boolean).join(" ");
 	const inputSuffix = inputDetails ? ` ${OVERLAY_1}(${inputDetails})${RESET}` : "";
-	// The generation suffix rides the output count: the in-progress TTFT while
-	// the first token is pending, the decode rate afterwards. Omitted until a
-	// turn starts, like the cache-hit rate inside the input parentheses above.
+	// The generation suffix rides the output count: TTFT then decode rate,
+	// shown together once a turn starts, with placeholders for unknown readings.
 	// Both parenthesized groups use a muted palette color so the cumulative
 	// input and output totals remain the visual focus.
 	const suffix = outputSuffix === null ? "" : ` ${OVERLAY_1}(${outputSuffix})${RESET}`;
@@ -337,14 +336,14 @@ export default function (pi: ExtensionAPI) {
 		waitTicker = setInterval(() => requestRender?.(), 100);
 	};
 
-	// The output suffix reports the phase rather than a combined readout: while
-	// the first token is pending it counts the in-progress TTFT, afterwards it
-	// shows the decode rate. Omitted entirely before the session's first turn.
-	// The wait clock is computed at render time on purpose -- being a clock, it
-	// should track wall time.
+	// Keep TTFT and speed together after a turn starts. The pending wait is the
+	// only render-time clock; the module's measured TTFT stays frozen after the
+	// first delta. A turn ending without a first token has no measured TTFT.
 	const renderGeneration = (now: number): string | null => {
-		if (turnStartedAt !== null) return `${TTFT_ICON} ${fmtTtft(now - turnStartedAt)}`;
-		return tpsText === null ? null : `${TPS_ICON} ${tpsText}`;
+		if (generation.turnStartMs === null) return null;
+		const ttftMs = turnStartedAt === null ? generation.ttftMs : now - turnStartedAt;
+		const ttftText = ttftMs === null ? "—" : fmtTtft(ttftMs);
+		return `${TTFT_ICON} ${ttftText} ${TPS_ICON} ${tpsText ?? "— T/s"}`;
 	};
 
 	const resetGeneration = (): void => {
@@ -369,6 +368,7 @@ export default function (pi: ExtensionAPI) {
 		const now = Date.now();
 		generation.startTurn(now);
 		turnStartedAt = now;
+		tpsText = null;
 		startWaitTicker();
 		lastRenderRequestMs = 0;
 		requestRender?.();
@@ -381,13 +381,12 @@ export default function (pi: ExtensionAPI) {
 		const now = Date.now();
 		generation.addDelta(delta, now);
 
-		// The first delta ends the wait phase: the slot hands over from the TTFT
-		// clock to the decode rate.
+		// The first delta freezes the module's TTFT; speed now updates beside it.
 		turnStartedAt = null;
 		stopWaitTicker();
 
-		// A null rate (inside the module's 250ms debounce) keeps the previous
-		// text rather than collapsing the segment to a placeholder.
+		// Inside the module's 250ms debounce, keep this turn's last rate or its
+		// unavailable placeholder -- never a stale rate from the previous turn.
 		const tps = generation.liveTps(now);
 		if (tps !== null) tpsText = fmtTps(tps);
 		requestRenderThrottled(now);

@@ -87,7 +87,7 @@ async function createFooter(t, { entries, reason = "startup" } = {}) {
   });
   await emit("session_start", { reason });
   await leftReady;
-  return { footer, ctx, emit };
+  return { get footer() { return footer; }, ctx, emit };
 }
 
 function desktopRow(width) {
@@ -230,10 +230,125 @@ test("keeps the generation suffix attached to tokens before cost in multiline mo
   const { footer, emit } = await createFooter(t);
   await emit("turn_start");
   now += 1_500;
-  const tokens = `${segments.tokens} ${color("127;132;156", "(\u{f199f} 1.5s)")}`;
+  const tokens = `${segments.tokens} ${color("127;132;156", "(\u{f199f} 1.5s \u{f140b} — T/s)")}`;
   assert.deepEqual(footer.render(minimumWidth), [
     `${tokens} ${segments.cost}`,
     mobileRows[1],
     left,
   ]);
+  const combinedRight = [segments.cost, tokens, segments.context, segments.model, segments.effort].join(" ");
+  const combinedWidth = visibleWidth(left) + 1 + visibleWidth(combinedRight);
+  assert.deepEqual(footer.render(combinedWidth), [truncateToWidth(`${left} ${combinedRight}`, combinedWidth)]);
+  for (let width = 0; width <= combinedWidth; width++) {
+    for (const row of footer.render(width)) assert.ok(visibleWidth(row) <= width);
+  }
+});
+
+function assertGeneration(footer, ttft, tps) {
+  const suffix = color("127;132;156", `(\u{f199f} ${ttft} \u{f140b} ${tps} T/s)`);
+  assert.ok(footer.render(250)[0].includes(`${segments.tokens} ${suffix}`));
+}
+
+test("keeps TTFT beside live and finalized speed without repaint drift", async (t) => {
+  let now = 10_000;
+  t.mock.method(Date, "now", () => now);
+  const { footer, emit } = await createFooter(t);
+  await emit("turn_start");
+  assertGeneration(footer, "0.0s", "—");
+  now += 1_000;
+  await emit("message_update", { assistantMessageEvent: { type: "text_start" } });
+  assertGeneration(footer, "1.0s", "—");
+  now += 500;
+  await emit("message_update", { assistantMessageEvent: { type: "text_delta", delta: "a".repeat(40) } });
+  assertGeneration(footer, "1.5s", "—");
+  now += 500;
+  await emit("message_update", { assistantMessageEvent: { type: "text_delta", delta: "b".repeat(40) } });
+  assertGeneration(footer, "1.5s", "40.0");
+  now += 1_000;
+  await emit("message_end", { message: { role: "assistant", usage: { output: 300 } } });
+  assertGeneration(footer, "1.5s", "200");
+  await emit("turn_end");
+  await emit("agent_end");
+  now += 60_000;
+  assertGeneration(footer, "1.5s", "200");
+});
+
+test("resets both readings for the next turn instead of showing stale speed", async (t) => {
+  let now = 10_000;
+  t.mock.method(Date, "now", () => now);
+  const { footer, emit } = await createFooter(t);
+  await emit("turn_start");
+  now += 1_000;
+  await emit("message_update", { assistantMessageEvent: { delta: "a".repeat(40) } });
+  now += 500;
+  await emit("message_end", { message: { role: "assistant", usage: { output: 300 } } });
+  assertGeneration(footer, "1.0s", "600");
+  await emit("turn_end");
+  now += 10_000;
+  await emit("turn_start");
+  assertGeneration(footer, "0.0s", "—");
+  now += 200;
+  await emit("message_update", { assistantMessageEvent: { delta: "new turn" } });
+  assertGeneration(footer, "0.2s", "—");
+});
+
+test("freezes TTFT on the first thinking or tool-call delta too", async (t) => {
+  for (const type of ["thinking_delta", "toolcall_delta"]) {
+    await t.test(type, async (t) => {
+      let now = 10_000;
+      t.mock.method(Date, "now", () => now);
+      const { footer, emit } = await createFooter(t);
+      await emit("turn_start");
+      now += 1_000;
+      await emit("message_update", { assistantMessageEvent: { type, delta: "a".repeat(40) } });
+      now += 500;
+      await emit("message_update", { assistantMessageEvent: { type, delta: "b".repeat(40) } });
+      assertGeneration(footer, "1.0s", "40.0");
+    });
+  }
+});
+
+test("keeps both slots after ending without a first token, without inventing TTFT", async (t) => {
+  for (const event of ["message_end", "turn_end", "agent_end"]) {
+    await t.test(event, async (t) => {
+      let now = 10_000;
+      t.mock.method(Date, "now", () => now);
+      const { footer, emit } = await createFooter(t);
+      await emit("turn_start");
+      now += 1_500;
+      assertGeneration(footer, "1.5s", "—");
+      await emit(event, { message: { role: "assistant", stopReason: "error", usage: { output: 0 } } });
+      now += 60_000;
+      assertGeneration(footer, "—", "—");
+    });
+  }
+});
+
+test("shows measured TTFT with unavailable speed for a sub-debounce response", async (t) => {
+  let now = 10_000;
+  t.mock.method(Date, "now", () => now);
+  const { footer, emit } = await createFooter(t);
+  await emit("turn_start");
+  now += 1_000;
+  await emit("message_update", { assistantMessageEvent: { delta: "short" } });
+  now += 100;
+  await emit("message_end", { message: { role: "assistant", usage: { output: 1 } } });
+  assertGeneration(footer, "1.0s", "—");
+});
+
+test("hides generation measurements again on session replacement or reload", async (t) => {
+  for (const reason of ["new", "resume", "reload"]) {
+    await t.test(reason, async (t) => {
+      let now = 10_000;
+      t.mock.method(Date, "now", () => now);
+      const fixture = await createFooter(t);
+      await fixture.emit("turn_start");
+      now += 1_000;
+      await fixture.emit("message_update", { assistantMessageEvent: { delta: "first token" } });
+      assertGeneration(fixture.footer, "1.0s", "—");
+      await fixture.emit("session_shutdown");
+      await fixture.emit("session_start", { reason });
+      assert.deepEqual(fixture.footer.render(minimumWidth), [desktopRow(minimumWidth)]);
+    });
+  }
 });
