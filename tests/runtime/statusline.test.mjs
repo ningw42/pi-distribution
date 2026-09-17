@@ -30,9 +30,9 @@ const segments = {
 const right = [segments.cost, segments.tokens, segments.context, segments.model, segments.effort].join(" ");
 const minimumWidth = visibleWidth(left) + 1 + visibleWidth(right);
 const mobileRows = [
-  left,
   `${segments.tokens} ${segments.cost}`,
   `${segments.model} ${segments.effort} ${segments.context}`,
+  left,
 ];
 
 async function createFooter(t) {
@@ -103,7 +103,7 @@ test("switches at the actual display width, including the one-column gap", async
   assert.deepEqual(footer.render(minimumWidth - 1), mobileRows);
 });
 
-test("uses Starship, tokens-cost, and model-effort-context rows on mobile", async (t) => {
+test("orders mobile rows by component update frequency", async (t) => {
   const { footer } = await createFooter(t);
   const width = Math.max(...mobileRows.map(visibleWidth));
   assert.ok(width < minimumWidth);
@@ -140,7 +140,7 @@ test("recalculates the fit when content changes at a fixed terminal width", asyn
   ctx.model.name += " Extended";
   const rows = footer.render(minimumWidth);
   assert.equal(rows.length, 3);
-  assert.equal(rows[2], `${color("235;160;172", "Test Model Extended")} ${segments.effort} ${segments.context}`);
+  assert.equal(rows[1], `${color("235;160;172", "Test Model Extended")} ${segments.effort} ${segments.context}`);
   ctx.model.name = "Test Model";
   assert.deepEqual(footer.render(minimumWidth), [desktopRow(minimumWidth)]);
 });
@@ -153,8 +153,8 @@ test("keeps the generation suffix attached to tokens before cost in multiline mo
   now += 1_500;
   const tokens = segments.tokens.replace(RESET, ` (\u{f199f} 1.5s)${RESET}`);
   assert.deepEqual(footer.render(minimumWidth), [
-    left,
     `${tokens} ${segments.cost}`,
-    mobileRows[2],
+    mobileRows[1],
+    left,
   ]);
 });

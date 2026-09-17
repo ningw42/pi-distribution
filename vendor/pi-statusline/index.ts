@@ -11,8 +11,9 @@
  *   <starship: dir + git>   $cost  ↑all-in (󰮆 non-cache-read 󱤟 cache%) ↓out (󱐋 82.3 T/s)  ▰▰▱▱ pct% used/limit  Model  effort
  *   └────────── left ──────────┘   └───────────────────────────── right group, flex-right ─────────────────────────────┘
  *
- * When that layout does not fit, use three independently truncated rows:
- * Starship left; tokens + cost; model + effort + context.
+ * When that layout does not fit, use three independently truncated rows,
+ * ordered from most frequently changing to least: tokens + cost;
+ * model + effort + context; Starship left.
  *
  * The parenthesised suffix on the output count reports the generation phase:
  * while a turn's first token is pending it counts the in-progress TTFT
@@ -443,9 +444,9 @@ export default function (pi: ExtensionAPI) {
 						return [truncateToWidth(left + " ".repeat(gap) + right, width)];
 					}
 					return [
-						left,
 						`${segments.tokens} ${segments.cost}`,
 						`${segments.model} ${segments.effort} ${segments.context}`,
+						left,
 					].map((line) => truncateToWidth(line, width));
 				},
 			};
