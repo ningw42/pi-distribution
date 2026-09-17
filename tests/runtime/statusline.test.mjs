@@ -39,7 +39,7 @@ const mobileRows = [
   left,
 ];
 
-async function createFooter(t) {
+async function createFooter(t, { entries, reason = "startup" } = {}) {
   const execFile = t.mock.method(childProcess, "execFile", (_command, args, _options, callback) => {
     queueMicrotask(() => callback(null, starship[args[1]] ?? ""));
   });
@@ -62,7 +62,7 @@ async function createFooter(t) {
     model: { name: "Test Model", contextWindow: 128_000 },
     getContextUsage: () => ({ percent: 25, tokens: 32_000, contextWindow: 128_000 }),
     sessionManager: {
-      getEntries: () => [{
+      getEntries: () => entries ?? [{
         type: "message",
         message: {
           role: "assistant",
@@ -85,7 +85,7 @@ async function createFooter(t) {
     await emit("session_shutdown");
     footer?.dispose();
   });
-  await emit("session_start");
+  await emit("session_start", { reason });
   await leftReady;
   return { footer, ctx, emit };
 }
@@ -99,6 +99,81 @@ test("renders the single-line text, colors, order, and right alignment", async (
   const width = minimumWidth + 30;
   assert.deepEqual(footer.render(width), [desktopRow(width)]);
   assert.equal(visibleWidth(footer.render(width)[0]), width);
+});
+
+test("renders token details from usage for both new and resumed sessions", async (t) => {
+  const assistantEntry = (usage) => ({
+    type: "message",
+    message: {
+      role: "assistant",
+      usage: { input: 0, cacheRead: 0, cacheWrite: 0, output: 0, cost: { total: 0 }, ...usage },
+    },
+  });
+  const cases = [
+    { name: "empty session", entries: [], input: "↑0", output: "↓0" },
+    {
+      name: "metadata without usage",
+      entries: [{ type: "model_change", provider: "test", modelId: "test" }],
+      input: "↑0", output: "↓0",
+    },
+    { name: "zero usage", entries: [assistantEntry({})], input: "↑0", output: "↓0" },
+    {
+      name: "output without input usage",
+      entries: [assistantEntry({ output: 300 })],
+      input: "↑0", output: "↓300",
+    },
+    {
+      name: "fully cached input",
+      entries: [assistantEntry({ cacheRead: 1_000, output: 300 })],
+      input: "↑1k", details: "(\u{f191f} 100.0%)", output: "↓300",
+    },
+    {
+      name: "ordinary input without cache writes",
+      entries: [assistantEntry({ input: 1_000, output: 300 })],
+      input: "↑1k", details: "(\u{f0b86} 1k \u{f191f} 0.0%)", output: "↓300",
+    },
+    {
+      name: "cache writes without ordinary input",
+      entries: [assistantEntry({ cacheWrite: 1_000, output: 300 })],
+      input: "↑1k", details: "(\u{f0b86} 1k \u{f191f} 0.0%)", output: "↓300",
+    },
+    {
+      name: "restored mixed usage",
+      entries: [assistantEntry({ input: 1_000, cacheRead: 8_000, cacheWrite: 1_000, output: 300 })],
+      input: "↑10k", details: "(\u{f0b86} 2k \u{f191f} 80.0%)", output: "↓300",
+    },
+  ];
+
+  for (const reason of ["startup", "resume"]) {
+    for (const fixture of cases) {
+      await t.test(`${reason}: ${fixture.name}`, async (t) => {
+        const { footer } = await createFooter(t, { entries: fixture.entries, reason });
+        const tokens = [
+          color("116;199;236", fixture.input),
+          ...(fixture.details ? [color("127;132;156", fixture.details)] : []),
+          color("116;199;236", fixture.output),
+        ].join(" ");
+        const cost = color("148;226;213", "$0.00");
+        const expectedRight = [cost, tokens, segments.context, segments.model, segments.effort].join(" ");
+        const width = visibleWidth(left) + 1 + visibleWidth(expectedRight);
+        assert.deepEqual(footer.render(width), [truncateToWidth(`${left} ${expectedRight}`, width)]);
+        assert.deepEqual(footer.render(width - 1), [`${tokens} ${cost}`, mobileRows[1], left]);
+      });
+    }
+  }
+});
+
+test("shows input details when usage arrives after an empty render", async (t) => {
+  const entries = [];
+  const { footer, emit } = await createFooter(t, { entries });
+  assert.ok(footer.render(200)[0].includes(`${color("116;199;236", "↑0")} ${color("116;199;236", "↓0")}`));
+  const message = {
+    role: "assistant",
+    usage: { input: 1_000, cacheRead: 8_000, cacheWrite: 1_000, output: 300, cost: { total: 1.25 } },
+  };
+  entries.push({ type: "message", message });
+  await emit("message_end", { message });
+  assert.deepEqual(footer.render(minimumWidth), [desktopRow(minimumWidth)]);
 });
 
 test("switches at the actual display width, including the one-column gap", async (t) => {

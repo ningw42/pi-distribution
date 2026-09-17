@@ -147,7 +147,7 @@ async function renderStarshipLeft(cwd: string): Promise<string> {
 	return left;
 }
 
-// --- right side (every segment rendered unconditionally) ---------------------
+// --- right side -------------------------------------------------------------
 
 interface Metrics {
 	cost: number;
@@ -235,9 +235,9 @@ function renderRightSegments(
 	// This excludes only cache hits. It includes normal input and cache writes,
 	// both of which are more directly tied to spend than cache-read input.
 	const nonCacheReadInput = metrics.input + metrics.cacheWrite;
-	// ↑all-input (non-cache-read cache-hit-rate) ↓output. Icons identify the two
-	// parenthesised values. When the rate is unknowable its icon and value are
-	// dropped rather than filled with a placeholder.
+	// ↑all-input (non-cache-read cache-hit-rate) ↓output. Omit the non-cache-read
+	// count when zero and the rate when unknown, dropping empty parentheses.
+	// Visibility follows cumulative usage, including restored sessions.
 	const hitRate = cacheHitRate(metrics);
 	// One decimal, rounded jq-style through jround so this agrees with
 	// statusline.py digit for digit. The trailing zero is kept -- "80.0%" not
@@ -246,14 +246,19 @@ function renderRightSegments(
 	const cacheHit =
 		hitRate === null
 			? ""
-			: ` ${CACHE_HIT_ICON} ${(jround(hitRate * 1000) / 10).toFixed(1)}%`;
+			: `${CACHE_HIT_ICON} ${(jround(hitRate * 1000) / 10).toFixed(1)}%`;
+	const inputDetails = [
+		nonCacheReadInput > 0 ? `${NON_CACHE_READ_ICON} ${fmtTokens(nonCacheReadInput)}` : "",
+		cacheHit,
+	].filter(Boolean).join(" ");
+	const inputSuffix = inputDetails ? ` ${OVERLAY_1}(${inputDetails})${RESET}` : "";
 	// The generation suffix rides the output count: the in-progress TTFT while
 	// the first token is pending, the decode rate afterwards. Omitted until a
 	// turn starts, like the cache-hit rate inside the input parentheses above.
 	// Both parenthesized groups use a muted palette color so the cumulative
 	// input and output totals remain the visual focus.
 	const suffix = outputSuffix === null ? "" : ` ${OVERLAY_1}(${outputSuffix})${RESET}`;
-	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)}${RESET} ${OVERLAY_1}(${NON_CACHE_READ_ICON} ${fmtTokens(nonCacheReadInput)}${cacheHit})${RESET} ${SAPPHIRE}↓${fmtTokens(metrics.output)}${RESET}${suffix}`;
+	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)}${RESET}${inputSuffix} ${SAPPHIRE}↓${fmtTokens(metrics.output)}${RESET}${suffix}`;
 	const context =
 		pct === null || contextTokens === null
 			? `?% ?/${fmtTokens(limit)}`
