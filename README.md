@@ -36,7 +36,10 @@ text, thinking, or tool-call delta while speed updates alongside it. Unavailable
 readings use `—`; a request ending before its first token has no measured TTFT.
 Both readings remain after completion and reset for the next turn. The pair is
 hidden on session start/resume/reload until a new turn begins, keeping launch
-clean. Parentheses and their contents retain the dimmed secondary color.
+clean. The actively measured metric's glyph, value, and units use Mocha Yellow
+(`#f9e2af`): TTFT while waiting, then speed while generating, even if the rate
+falls. Parentheses, unavailable placeholders, and frozen readings retain the
+dimmed secondary color (`#7f849c`).
 
 The statusline keeps its single-line layout whenever the rendered content fits
 with at least one space between its left and right sections. Otherwise, it uses

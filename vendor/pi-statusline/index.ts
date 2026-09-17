@@ -25,8 +25,11 @@
  * Both readings persist until the next turn or session reset; repaints cannot
  * make them drift. Only the in-progress wait uses render-time `Date.now()`.
  *
- * Colours are catppuccin-mocha (teal / sapphire / overlay 1 / maroon / peach /
- * flamingo), emitted as raw 24-bit ANSI rather than mapping onto pi's semantic
+ * Active generation readings (glyph, value, and units) use Mocha Yellow;
+ * parentheses, placeholders, and frozen readings stay muted in Overlay 1.
+ *
+ * Colours are catppuccin-mocha (teal / sapphire / overlay 1 / yellow / maroon /
+ * peach / flamingo), emitted as raw 24-bit ANSI rather than mapping onto pi's semantic
  * theme names. The left side shells out to
  * `starship module …` exactly like the python, but caches the result (refreshed
  * on session start, git branch change, and turn end) since the footer
@@ -57,6 +60,7 @@ function fg(hex: string): string {
 const TEAL = fg("#94E2D5"); // cumulative cost
 const SAPPHIRE = fg("#74C7EC"); // cumulative token usage
 const OVERLAY_1 = fg("#7F849C"); // secondary token details
+const YELLOW = fg("#F9E2AF"); // active generation readings
 const MAROON = fg("#EBA0AC"); // model
 const PEACH = fg("#FAB387"); // effort
 const FLAMINGO = fg("#F2CDCD"); // context bar
@@ -254,8 +258,8 @@ function renderRightSegments(
 	const inputSuffix = inputDetails ? ` ${OVERLAY_1}(${inputDetails})${RESET}` : "";
 	// The generation suffix rides the output count: TTFT then decode rate,
 	// shown together once a turn starts, with placeholders for unknown readings.
-	// Both parenthesized groups use a muted palette color so the cumulative
-	// input and output totals remain the visual focus.
+	// Parentheses and inactive details stay muted. Active generation readings
+	// restore this color after their highlight so it cannot leak to parentheses.
 	const suffix = outputSuffix === null ? "" : ` ${OVERLAY_1}(${outputSuffix})${RESET}`;
 	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)}${RESET}${inputSuffix} ${SAPPHIRE}↓${fmtTokens(metrics.output)}${RESET}${suffix}`;
 	const context =
@@ -291,6 +295,7 @@ export default function (pi: ExtensionAPI) {
 	// clock (and the same `turn_start` anchor its TTFT uses), this file owns the
 	// rendered text and the in-progress wait clock.
 	const generation = new TurnMetrics();
+	let generationActive = false;
 	let turnStartedAt: number | null = null;
 	let tpsText: string | null = null;
 	let lastRenderRequestMs = 0;
@@ -342,13 +347,18 @@ export default function (pi: ExtensionAPI) {
 	const renderGeneration = (now: number): string | null => {
 		if (generation.turnStartMs === null) return null;
 		const ttftMs = turnStartedAt === null ? generation.ttftMs : now - turnStartedAt;
-		const ttftText = ttftMs === null ? "—" : fmtTtft(ttftMs);
-		return `${TTFT_ICON} ${ttftText} ${TPS_ICON} ${tpsText ?? "— T/s"}`;
+		const ttftText = `${TTFT_ICON} ${ttftMs === null ? "—" : fmtTtft(ttftMs)}`;
+		const speedText = `${TPS_ICON} ${tpsText ?? "— T/s"}`;
+		// Restore the enclosing group's muted color, not the terminal default.
+		const ttft = turnStartedAt === null ? ttftText : `${YELLOW}${ttftText}${OVERLAY_1}`;
+		const speed = generationActive && tpsText !== null ? `${YELLOW}${speedText}${OVERLAY_1}` : speedText;
+		return `${ttft} ${speed}`;
 	};
 
 	const resetGeneration = (): void => {
 		stopWaitTicker();
 		generation.clear();
+		generationActive = false;
 		turnStartedAt = null;
 		tpsText = null;
 		invalidateMetrics();
@@ -367,6 +377,7 @@ export default function (pi: ExtensionAPI) {
 	pi.on("turn_start", async () => {
 		const now = Date.now();
 		generation.startTurn(now);
+		generationActive = true;
 		turnStartedAt = now;
 		tpsText = null;
 		startWaitTicker();
@@ -397,6 +408,7 @@ export default function (pi: ExtensionAPI) {
 		// A finalized assistant message can carry the provider's exact output
 		// count; the module prefers it over the chars estimate when present.
 		if (event.message.role === "assistant") {
+			generationActive = false;
 			turnStartedAt = null;
 			stopWaitTicker();
 			const tps = generation.averageTps(Date.now(), event.message.usage?.output);
@@ -408,6 +420,7 @@ export default function (pi: ExtensionAPI) {
 	// Esc or a failed request can end a run while the first token is still
 	// pending; the wait ticker must not outlive its turn.
 	pi.on("agent_end", async () => {
+		generationActive = false;
 		turnStartedAt = null;
 		stopWaitTicker();
 		requestRender?.();
@@ -464,6 +477,7 @@ export default function (pi: ExtensionAPI) {
 	// Working-tree state (git_status / git_metrics) drifts as the agent edits
 	// files; refresh after each turn so the cached left side stays honest.
 	pi.on("turn_end", async (_event, ctx) => {
+		generationActive = false;
 		turnStartedAt = null;
 		stopWaitTicker();
 		invalidateMetrics();
