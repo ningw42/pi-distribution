@@ -20,7 +20,7 @@
  * While the first token is pending, TTFT counts the in-progress wait from the
  * same `turn_start` anchor `tps.ts` (the pinned `@everyx/pi-status-line`
  * dependency) uses; the first token freezes TTFT while decode speed updates
- * alongside it. Unavailable readings use "—", not a fabricated zero. The
+ * alongside it. Unavailable TTFT uses "—" and speed uses "·", not zero. The
  * finalized message freezes the rate using the provider's exact output count.
  * Both readings persist until the next turn or session reset; repaints cannot
  * make them drift. Only the in-progress wait uses render-time `Date.now()`.
@@ -348,7 +348,7 @@ export default function (pi: ExtensionAPI) {
 		if (generation.turnStartMs === null) return null;
 		const ttftMs = turnStartedAt === null ? generation.ttftMs : now - turnStartedAt;
 		const ttftText = `${TTFT_ICON} ${ttftMs === null ? "—" : fmtTtft(ttftMs)}`;
-		const speedText = `${TPS_ICON} ${tpsText ?? "— T/s"}`;
+		const speedText = `${TPS_ICON} ${tpsText ?? "· T/s"}`;
 		// Restore the enclosing group's muted color, not the terminal default.
 		const ttft = turnStartedAt === null ? ttftText : `${YELLOW}${ttftText}${OVERLAY_1}`;
 		const speed = generationActive && tpsText !== null ? `${YELLOW}${speedText}${OVERLAY_1}` : speedText;

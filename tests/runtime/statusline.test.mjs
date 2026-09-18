@@ -241,7 +241,7 @@ test("keeps the generation suffix attached to tokens before cost in multiline mo
       assert.deepEqual(footer.render(width), rows.map((row) => truncateToWidth(row, width)));
     }
   };
-  checkLayout(generationSuffix("1.5s", "—", "ttft"));
+  checkLayout(generationSuffix("1.5s", "·", "ttft"));
   await emit("message_update", { assistantMessageEvent: { delta: "a".repeat(40) } });
   now += 500;
   await emit("message_update", { assistantMessageEvent: { delta: "b".repeat(40) } });
@@ -264,13 +264,13 @@ test("keeps TTFT beside live and finalized speed without repaint drift", async (
   t.mock.method(Date, "now", () => now);
   const { footer, emit } = await createFooter(t);
   await emit("turn_start");
-  assertGeneration(footer, "0.0s", "—", "ttft");
+  assertGeneration(footer, "0.0s", "·", "ttft");
   now += 1_000;
   await emit("message_update", { assistantMessageEvent: { type: "text_start" } });
-  assertGeneration(footer, "1.0s", "—", "ttft");
+  assertGeneration(footer, "1.0s", "·", "ttft");
   now += 500;
   await emit("message_update", { assistantMessageEvent: { type: "text_delta", delta: "a".repeat(40) } });
-  assertGeneration(footer, "1.5s", "—");
+  assertGeneration(footer, "1.5s", "·");
   now += 500;
   await emit("message_update", { assistantMessageEvent: { type: "text_delta", delta: "b".repeat(40) } });
   assertGeneration(footer, "1.5s", "40.0", "tps");
@@ -303,10 +303,10 @@ test("resets both readings for the next turn instead of showing stale speed", as
   await emit("turn_end");
   now += 10_000;
   await emit("turn_start");
-  assertGeneration(footer, "0.0s", "—", "ttft");
+  assertGeneration(footer, "0.0s", "·", "ttft");
   now += 200;
   await emit("message_update", { assistantMessageEvent: { delta: "new turn" } });
-  assertGeneration(footer, "0.2s", "—");
+  assertGeneration(footer, "0.2s", "·");
 });
 
 test("freezes TTFT on the first thinking or tool-call delta too", async (t) => {
@@ -333,10 +333,10 @@ test("keeps both slots after ending without a first token, without inventing TTF
       const { footer, emit } = await createFooter(t);
       await emit("turn_start");
       now += 1_500;
-      assertGeneration(footer, "1.5s", "—", "ttft");
+      assertGeneration(footer, "1.5s", "·", "ttft");
       await emit(event, { message: { role: "assistant", stopReason: "error", usage: { output: 0 } } });
       now += 60_000;
-      assertGeneration(footer, "—", "—");
+      assertGeneration(footer, "—", "·");
     });
   }
 });
@@ -369,7 +369,7 @@ test("shows measured TTFT with unavailable speed for a sub-debounce response", a
   await emit("message_update", { assistantMessageEvent: { delta: "short" } });
   now += 100;
   await emit("message_end", { message: { role: "assistant", usage: { output: 1 } } });
-  assertGeneration(footer, "1.0s", "—");
+  assertGeneration(footer, "1.0s", "·");
 });
 
 test("hides generation measurements again on session replacement or reload", async (t) => {

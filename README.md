@@ -33,7 +33,8 @@ not exposed, and Pi does not activate dependency manifests.
 Once a turn starts, the output suffix shows TTFT then decode speed together:
 `(󱦟 1.4s 󱐋 82.3 T/s)`. TTFT counts the pending wait, then freezes at the first
 text, thinking, or tool-call delta while speed updates alongside it. Unavailable
-readings use `—`; a request ending before its first token has no measured TTFT.
+TTFT uses `—` and speed uses `· T/s`; a request ending before its first token has
+no measured TTFT.
 Both readings remain after completion and reset for the next turn. The pair is
 hidden on session start/resume/reload until a new turn begins, keeping launch
 clean. The actively measured metric's glyph, value, and units use Mocha Yellow
