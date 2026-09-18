@@ -8,7 +8,7 @@
  * numbers from `ctx` (sessionManager / model / context usage) plus
  * `pi.getThinkingLevel()`. This file reproduces the same LOOK:
  *
- *   <starship: dir + git>   $cost  ↑all-in (󰮆 non-cache-read 󱤟 cache%) ↓out (󱦟 1.4s 󱐋 82.3 T/s)  ▰▰▱▱ pct% used/limit  Model  effort
+ *   <starship: dir + git>   $cost  ↑all-in (󰮆 non-cache-read 󱤟 cache%) ↓out (󱦟 1.4s 󱐋 82 T/s)  ▰▰▱▱ pct% used/limit  Model  effort
  *   └────────── left ──────────┘   └───────────────────────────── right group, flex-right ─────────────────────────────┘
  *
  * When that layout does not fit, use three independently truncated rows,
@@ -16,7 +16,7 @@
  * model + effort + context; Starship left.
  *
  * The parenthesised suffix on the output count shows TTFT then decode speed
- * together ("(󱦟 1.4s 󱐋 82.3 T/s)"). It stays hidden until a turn starts.
+ * together ("(󱦟 1.4s 󱐋 82 T/s)"). It stays hidden until a turn starts.
  * While the first token is pending, TTFT counts the in-progress wait from the
  * same `turn_start` anchor `tps.ts` (the pinned `@everyx/pi-status-line`
  * dependency) uses; the first token freezes TTFT while decode speed updates
@@ -100,9 +100,9 @@ function fmtTokens(n: number): string {
 	return num(n);
 }
 
-/** Decode speed for the live segment: "82.3 T/s", widening to integers at 100+. */
+/** Live and finalized decode speed, rounded to whole tokens per second. */
 function fmtTps(tps: number): string {
-	return `${tps >= 100 ? tps.toFixed(0) : tps.toFixed(1)} T/s`;
+	return `${tps.toFixed(0)} T/s`;
 }
 
 /** Prefill wait in seconds for the output suffix: "0.0s" through "10.5s". */

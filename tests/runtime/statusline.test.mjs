@@ -245,7 +245,7 @@ test("keeps the generation suffix attached to tokens before cost in multiline mo
   await emit("message_update", { assistantMessageEvent: { delta: "a".repeat(40) } });
   now += 500;
   await emit("message_update", { assistantMessageEvent: { delta: "b".repeat(40) } });
-  checkLayout(generationSuffix("1.5s", "40.0", "tps"));
+  checkLayout(generationSuffix("1.5s", "40", "tps"));
 });
 
 function generationSuffix(ttft, tps, active = null) {
@@ -273,14 +273,14 @@ test("keeps TTFT beside live and finalized speed without repaint drift", async (
   assertGeneration(footer, "1.5s", "·");
   now += 500;
   await emit("message_update", { assistantMessageEvent: { type: "text_delta", delta: "b".repeat(40) } });
-  assertGeneration(footer, "1.5s", "40.0", "tps");
+  assertGeneration(footer, "1.5s", "40", "tps");
   // Unrelated messages don't end generation or remove its active color.
   await emit("message_end", { message: { role: "toolResult" } });
-  assertGeneration(footer, "1.5s", "40.0", "tps");
+  assertGeneration(footer, "1.5s", "40", "tps");
   now += 500;
   await emit("message_update", { assistantMessageEvent: { delta: "c".repeat(40) } });
   // Speed can fall while still being actively measured.
-  assertGeneration(footer, "1.5s", "30.0", "tps");
+  assertGeneration(footer, "1.5s", "30", "tps");
   now += 500;
   await emit("message_end", { message: { role: "assistant", usage: { output: 300 } } });
   assertGeneration(footer, "1.5s", "200");
@@ -288,6 +288,31 @@ test("keeps TTFT beside live and finalized speed without repaint drift", async (
   await emit("agent_end");
   now += 60_000;
   assertGeneration(footer, "1.5s", "200");
+});
+
+test("rounds live and finalized speed to integers at every magnitude", async (t) => {
+  const cases = [
+    { name: "below one token per second", tokens: 1, elapsedMs: 3_000, expected: "0" },
+    { name: "rounds down", tokens: 4, elapsedMs: 3_000, expected: "1" },
+    { name: "rounds half up", tokens: 5, elapsedMs: 2_000, expected: "3" },
+    { name: "rounds across 100", tokens: 199, elapsedMs: 2_000, expected: "100" },
+    { name: "above 100", tokens: 201, elapsedMs: 2_000, expected: "101" },
+  ];
+  for (const { name, tokens, elapsedMs, expected } of cases) {
+    await t.test(name, async (t) => {
+      let now = 10_000;
+      t.mock.method(Date, "now", () => now);
+      const { footer, emit } = await createFooter(t);
+      await emit("turn_start");
+      now += 1_000;
+      await emit("message_update", { assistantMessageEvent: { delta: "a" } });
+      now += elapsedMs;
+      await emit("message_update", { assistantMessageEvent: { delta: "b".repeat(tokens * 4 - 1) } });
+      assertGeneration(footer, "1.0s", expected, "tps");
+      await emit("message_end", { message: { role: "assistant", usage: { output: tokens } } });
+      assertGeneration(footer, "1.0s", expected);
+    });
+  }
 });
 
 test("resets both readings for the next turn instead of showing stale speed", async (t) => {
@@ -320,7 +345,7 @@ test("freezes TTFT on the first thinking or tool-call delta too", async (t) => {
       await emit("message_update", { assistantMessageEvent: { type, delta: "a".repeat(40) } });
       now += 500;
       await emit("message_update", { assistantMessageEvent: { type, delta: "b".repeat(40) } });
-      assertGeneration(footer, "1.0s", "40.0", "tps");
+      assertGeneration(footer, "1.0s", "40", "tps");
     });
   }
 });
@@ -352,10 +377,10 @@ test("dims live speed on every terminal event, including errors and aborts", asy
       await emit("message_update", { assistantMessageEvent: { delta: "a".repeat(40) } });
       now += 500;
       await emit("message_update", { assistantMessageEvent: { delta: "b".repeat(40) } });
-      assertGeneration(footer, "1.0s", "40.0", "tps");
+      assertGeneration(footer, "1.0s", "40", "tps");
       await emit(event, { message: { role: "assistant", stopReason: "error", usage: { output: 20 } } });
       now += 60_000;
-      assertGeneration(footer, "1.0s", "40.0");
+      assertGeneration(footer, "1.0s", "40");
     });
   }
 });
@@ -383,7 +408,7 @@ test("hides generation measurements again on session replacement or reload", asy
       await fixture.emit("message_update", { assistantMessageEvent: { delta: "a".repeat(40) } });
       now += 500;
       await fixture.emit("message_update", { assistantMessageEvent: { delta: "b".repeat(40) } });
-      assertGeneration(fixture.footer, "1.0s", "40.0", "tps");
+      assertGeneration(fixture.footer, "1.0s", "40", "tps");
       await fixture.emit("session_shutdown");
       await fixture.emit("session_start", { reason });
       assert.deepEqual(fixture.footer.render(minimumWidth), [desktopRow(minimumWidth)]);
