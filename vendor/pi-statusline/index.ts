@@ -30,7 +30,7 @@
  *
  * Effort uses Pi's active theme thinking-level color, matching the editor border.
  * Other colours are catppuccin-mocha (teal / sapphire / overlay 1 / yellow /
- * maroon / flamingo), emitted as raw 24-bit ANSI rather than mapping onto pi's
+ * peach / flamingo), emitted as raw 24-bit ANSI rather than mapping onto pi's
  * semantic theme names. The left side shells out to
  * `starship module …` exactly like the python, but caches the result (refreshed
  * on session start, git branch change, and turn end) since the footer
@@ -62,7 +62,7 @@ const TEAL = fg("#94E2D5"); // cumulative cost
 const SAPPHIRE = fg("#74C7EC"); // cumulative token usage
 const OVERLAY_1 = fg("#7F849C"); // secondary token details
 const YELLOW = fg("#F9E2AF"); // active generation readings
-const MAROON = fg("#EBA0AC"); // model
+const PEACH = fg("#FAB387"); // model
 const FLAMINGO = fg("#F2CDCD"); // context bar
 const RESET = "\x1b[0m";
 
@@ -270,7 +270,7 @@ function renderRightSegments(
 		cost: `${TEAL}$${metrics.cost.toFixed(2)}${RESET}`,
 		tokens,
 		context: `${FLAMINGO}${context}${RESET}`,
-		model: `${MAROON}${model}${RESET}`,
+		model: `${PEACH}${model}${RESET}`,
 		effort,
 	};
 }

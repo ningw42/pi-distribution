@@ -35,7 +35,7 @@ const segments = {
     color("116;199;236", "↓300"),
   ].join(" "),
   context: color("242;205;205", "\uee03\uee04\uee04\uee01\uee01\uee01\uee01\uee01\uee01\uee02 25% 32k/128k"),
-  model: color("235;160;172", "Test Model"),
+  model: color("250;179;135", "Test Model"),
   effort: defaultTheme.getThinkingBorderColor("high")("high"),
 };
 const right = [segments.cost, segments.tokens, segments.context, segments.model, segments.effort].join(" ");
@@ -277,7 +277,7 @@ test("recalculates the fit when content changes at a fixed terminal width", asyn
   ctx.model.name += " Extended";
   const rows = footer.render(minimumWidth);
   assert.equal(rows.length, 3);
-  assert.equal(rows[1], `${color("235;160;172", "Test Model Extended")} ${segments.effort} ${segments.context}`);
+  assert.equal(rows[1], `${color("250;179;135", "Test Model Extended")} ${segments.effort} ${segments.context}`);
   ctx.model.name = "Test Model";
   assert.deepEqual(footer.render(minimumWidth), [desktopRow(minimumWidth)]);
 });
