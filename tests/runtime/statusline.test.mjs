@@ -2,15 +2,22 @@ import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { syncBuiltinESMExports } from "node:module";
 import test from "node:test";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { getPiRuntime } from "../helpers/pi-runtime.mjs";
 
-// Use Pi's independently locked loader and real ANSI/column-width utilities.
+// Use Pi's independently locked loader, theme helper, and ANSI/column-width utilities.
 const runtime = getPiRuntime();
 const { createJiti } = await import(pathToFileURL(runtime.resolve("jiti")));
 const tui = await import(pathToFileURL(runtime.resolve("@earendil-works/pi-tui")));
 const { truncateToWidth, visibleWidth } = tui;
+const piTheme = await import(new URL("../modes/interactive/theme/theme.js", pathToFileURL(runtime.cli)));
+const defaultTheme = piTheme.loadThemeFromPath(fileURLToPath(new URL(
+  "../../node_modules/@sherif-fanous/pi-catppuccin/themes/catppuccin-mocha.json", import.meta.url,
+)), "truecolor");
+const alternateTheme = piTheme.loadThemeFromPath(fileURLToPath(new URL(
+  "../modes/interactive/theme/dark.json", pathToFileURL(runtime.cli),
+)), "truecolor");
 const RESET = "\x1b[0m";
 const color = (rgb, text) => `\x1b[38;2;${rgb}m${text}${RESET}`;
 const starship = {
@@ -29,7 +36,7 @@ const segments = {
   ].join(" "),
   context: color("242;205;205", "\uee03\uee04\uee04\uee01\uee01\uee01\uee01\uee01\uee01\uee02 25% 32k/128k"),
   model: color("235;160;172", "Test Model"),
-  effort: color("250;179;135", "high"),
+  effort: defaultTheme.getThinkingBorderColor("high")("high"),
 };
 const right = [segments.cost, segments.tokens, segments.context, segments.model, segments.effort].join(" ");
 const minimumWidth = visibleWidth(left) + 1 + visibleWidth(right);
@@ -39,7 +46,9 @@ const mobileRows = [
   left,
 ];
 
-async function createFooter(t, { entries, reason = "startup" } = {}) {
+async function createFooter(t, { entries, reason = "startup", thinkingLevel = "high" } = {}) {
+  piTheme.setThemeInstance(defaultTheme);
+  t.after(() => piTheme.setThemeInstance(defaultTheme));
   const execFile = t.mock.method(childProcess, "execFile", (_command, args, _options, callback) => {
     queueMicrotask(() => callback(null, starship[args[1]] ?? ""));
   });
@@ -55,8 +64,9 @@ async function createFooter(t, { entries, reason = "startup" } = {}) {
   const extension = await jiti.import("../../extensions/pi-statusline/index.ts", { default: true });
   const handlers = new Map();
   let footer;
-  let requestRender;
-  const leftReady = new Promise((resolve) => { requestRender = resolve; });
+  let resolveLeftReady;
+  const leftReady = new Promise((resolve) => { resolveLeftReady = resolve; });
+  const requestRender = t.mock.fn(() => resolveLeftReady());
   const ctx = {
     cwd: process.cwd(),
     model: { name: "Test Model", contextWindow: 128_000 },
@@ -72,13 +82,13 @@ async function createFooter(t, { entries, reason = "startup" } = {}) {
     },
     ui: {
       setFooter(factory) {
-        footer = factory({ requestRender }, {}, { onBranchChange: () => () => {} });
+        footer = factory({ requestRender }, piTheme.theme, { onBranchChange: () => () => {} });
       },
     },
   };
   extension({
     on: (event, handler) => handlers.set(event, handler),
-    getThinkingLevel: () => "high",
+    getThinkingLevel: () => thinkingLevel,
   });
   const emit = (event, data = {}) => handlers.get(event)?.(data, ctx);
   t.after(async () => {
@@ -87,7 +97,14 @@ async function createFooter(t, { entries, reason = "startup" } = {}) {
   });
   await emit("session_start", { reason });
   await leftReady;
-  return { get footer() { return footer; }, ctx, emit };
+  return {
+    get footer() { return footer; }, ctx, emit, requestRender,
+    async setThinkingLevel(level) {
+      const previousLevel = thinkingLevel;
+      thinkingLevel = level;
+      await emit("thinking_level_select", { level, previousLevel });
+    },
+  };
 }
 
 function desktopRow(width) {
@@ -99,6 +116,47 @@ test("renders the single-line text, colors, order, and right alignment", async (
   const width = minimumWidth + 30;
   assert.deepEqual(footer.render(width), [desktopRow(width)]);
   assert.equal(visibleWidth(footer.render(width)[0]), width);
+});
+
+function assertEffort(footer, effort) {
+  const expectedRight = [segments.cost, segments.tokens, segments.context, segments.model, effort].join(" ");
+  const width = visibleWidth(left) + 1 + visibleWidth(expectedRight);
+  assert.deepEqual(footer.render(width), [truncateToWidth(`${left} ${expectedRight}`, width)]);
+  assert.deepEqual(footer.render(width - 1), [
+    mobileRows[0], `${segments.model} ${effort} ${segments.context}`, left,
+  ]);
+}
+
+test("uses Pi's thinking-level colors and requests an immediate repaint for effort changes", async (t) => {
+  const { footer, setThinkingLevel, requestRender } = await createFooter(t);
+  for (const level of ["off", "minimal", "low", "medium", "high", "xhigh", "max", "off"]) {
+    const rendersBefore = requestRender.mock.callCount();
+    await setThinkingLevel(level);
+    assert.equal(requestRender.mock.callCount(), rendersBefore + 1);
+    assertEffort(footer, defaultTheme.getThinkingBorderColor(level)(level));
+  }
+});
+
+test("follows the active theme without recreating the footer, including Pi's max fallback", async (t) => {
+  const { footer, setThinkingLevel } = await createFooter(t);
+  for (const level of ["high", "max"]) {
+    await setThinkingLevel(level);
+    const originalEffort = defaultTheme.getThinkingBorderColor(level)(level);
+    const alternateEffort = alternateTheme.getThinkingBorderColor(level)(level);
+    assert.notEqual(originalEffort, alternateEffort);
+    assertEffort(footer, originalEffort);
+
+    piTheme.setThemeInstance(alternateTheme);
+    footer.invalidate();
+    assertEffort(footer, alternateEffort);
+
+    piTheme.setThemeInstance(defaultTheme);
+    footer.invalidate();
+    assertEffort(footer, originalEffort);
+  }
+  // Mocha omits thinkingMax; Pi owns its fallback to thinkingXhigh.
+  assert.equal(defaultTheme.getThinkingBorderColor("max")("max"), defaultTheme.fg("thinkingXhigh", "max"));
+  assert.notEqual(alternateTheme.fg("thinkingMax", "max"), alternateTheme.fg("thinkingXhigh", "max"));
 });
 
 test("renders token details from usage for both new and resumed sessions", async (t) => {

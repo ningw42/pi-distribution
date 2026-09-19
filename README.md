@@ -43,6 +43,10 @@ clean. The actively measured metric's glyph, value, and units use Mocha Yellow
 falls. Parentheses, unavailable placeholders, and frozen readings retain the
 dimmed secondary color (`#7f849c`).
 
+The effort label uses Pi's active theme thinking-level color, matching the editor
+border via `theme.getThinkingBorderColor()`. It updates when effort changes and
+follows theme switches; the statusline defines no separate effort palette.
+
 The statusline keeps its single-line layout whenever the rendered content fits
 with at least one space between its left and right sections. Otherwise, it uses
 three left-aligned rows:

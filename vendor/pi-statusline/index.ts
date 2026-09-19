@@ -28,9 +28,10 @@
  * Active generation readings (glyph, value, and units) use Mocha Yellow;
  * parentheses, placeholders, and frozen readings stay muted in Overlay 1.
  *
- * Colours are catppuccin-mocha (teal / sapphire / overlay 1 / yellow / maroon /
- * peach / flamingo), emitted as raw 24-bit ANSI rather than mapping onto pi's semantic
- * theme names. The left side shells out to
+ * Effort uses Pi's active theme thinking-level color, matching the editor border.
+ * Other colours are catppuccin-mocha (teal / sapphire / overlay 1 / yellow /
+ * maroon / flamingo), emitted as raw 24-bit ANSI rather than mapping onto pi's
+ * semantic theme names. The left side shells out to
  * `starship module …` exactly like the python, but caches the result (refreshed
  * on session start, git branch change, and turn end) since the footer
  * re-renders far more often than a one-shot CLI statusline.
@@ -62,7 +63,6 @@ const SAPPHIRE = fg("#74C7EC"); // cumulative token usage
 const OVERLAY_1 = fg("#7F849C"); // secondary token details
 const YELLOW = fg("#F9E2AF"); // active generation readings
 const MAROON = fg("#EBA0AC"); // model
-const PEACH = fg("#FAB387"); // effort
 const FLAMINGO = fg("#F2CDCD"); // context bar
 const RESET = "\x1b[0m";
 
@@ -271,7 +271,7 @@ function renderRightSegments(
 		tokens,
 		context: `${FLAMINGO}${context}${RESET}`,
 		model: `${MAROON}${model}${RESET}`,
-		effort: `${PEACH}${effort}${RESET}`,
+		effort,
 	};
 }
 
@@ -426,11 +426,13 @@ export default function (pi: ExtensionAPI) {
 		requestRender?.();
 	});
 
+	pi.on("thinking_level_select", () => requestRender?.());
+
 	pi.on("session_start", async (_event, ctx) => {
 		resetGeneration();
 		refreshLeft(ctx.cwd);
 
-		ctx.ui.setFooter((tui, _theme, footerData) => {
+		ctx.ui.setFooter((tui, theme, footerData) => {
 			requestRender = () => tui.requestRender();
 			const unsub = footerData.onBranchChange(() => {
 				invalidateMetrics();
@@ -457,7 +459,8 @@ export default function (pi: ExtensionAPI) {
 						contextTokens,
 						limit,
 						model,
-						effort,
+						// Resolve at render time so effort and theme changes both apply.
+						theme.getThinkingBorderColor(effort)(effort),
 					);
 					const right = [segments.cost, segments.tokens, segments.context, segments.model, segments.effort].join(" ");
 					const gap = width - visibleWidth(left) - visibleWidth(right);
