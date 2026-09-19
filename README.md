@@ -24,8 +24,6 @@ The package exposes extensions through a uniform forwarding-shim layer, skills, 
 | `pi-subagents` | npm dependency `@tintinweb/pi-subagents` | `package.json` |
 | `pi-tasks` | npm dependency `@tintinweb/pi-tasks` | `package.json` |
 
-Every public extension entry is `extensions/<name>/index.ts`. The entries only forward to a local implementation under `vendor/` or to a pinned package under `node_modules/`, which keeps Pi's displayed extension names stable.
-
 The statusline imports the pure `tps.ts` metrics module from the pinned
 `@everyx/pi-status-line` dependency. That package's own Pi extension entry is
 not exposed, and Pi does not activate dependency manifests.
@@ -133,6 +131,8 @@ The themes are available after installation, but installation does not select on
 
 ## Development and verification
 
+Read [AGENTS.md](AGENTS.md) for editing boundaries, test isolation, maintenance rules, and commit conventions.
+
 Use Node.js 24 and the npm version recorded in `packageManager`. Run these commands from the repository root to install both locked dependency trees and execute the full development/release verification gate:
 
 ```bash
@@ -140,8 +140,6 @@ npm ci --ignore-scripts
 npm --prefix tests/smoke-runtime ci --include=dev --ignore-scripts
 npm run test:all
 ```
-
-The root lock contains only the production package closure consumed by installers; there are no root dev dependencies. The exact Pi version used for compatibility testing lives under `tests/smoke-runtime`, so Pi updates cannot add test-only packages to the production closure. The explicit `--include=dev` installs that runtime even with production-oriented npm configuration.
 
 | Command | Coverage | Prerequisites |
 |---|---|---|
@@ -160,9 +158,7 @@ npm ci --omit=dev --ignore-scripts
 npm run test:package
 ```
 
-Offline builds must provision the root dependency closure in advance. The package suite reads the committed smoke-runtime manifest and lock, but does not require its `node_modules`. Test commands never install missing dependencies or silently skip a suite.
-
-The runtime tests and smoke runner share a preflight that checks the installed Pi version and CLI. Missing or stale installations fail with the exact smoke-runtime install command above. Runtime tests resolve Pi's loader and TUI only from that installed tree, not ancestor or global modules. The smoke test invokes its locked Pi CLI, not an ambient `pi` executable or `PI_PACKAGE_DIR`, so local and CI runs exercise the same Pi runtime.
+Offline builds must provision the root dependency closure in advance. The package suite reads the committed smoke-runtime manifest and lock, but does not require its `node_modules`.
 
 CI runs `test:package` before installing the smoke runtime, then runs `test:runtime` and `smoke`. Native release jobs run `test:all`, retaining the exact tested tarball.
 
@@ -204,7 +200,7 @@ npm --prefix tests/smoke-runtime install --save-dev --save-exact --include=dev -
 npm run test:all
 ```
 
-Renovate groups both kinds of update into one reviewed PR. The unscoped npm packages `pi-subagents` and `pi-tasks` are unrelated projects. Continue using `@tintinweb/pi-subagents` and `@tintinweb/pi-tasks`. `@everyx/pi-status-line` supplies the statusline's `tps.ts` metrics module, so the grouped dependency update covers it like any other pinned dependency.
+Renovate groups production and smoke-runtime dependency updates into one reviewed PR.
 
 ### RTK
 
@@ -216,14 +212,6 @@ npm run test:all
 ```
 
 Set `RTK_BIN=/absolute/path/to/rtk` to select a specific binary. The updater runs `rtk init -g --agent pi --no-patch` under a temporary home, verifies the generated source against the matching upstream tag, and updates only `vendor/pi-rtk/`.
-
-### Statusline
-
-When updating the statusline implementation, retain the portable default:
-
-```ts
-const STARSHIP_BIN = process.env.PI_STATUSLINE_STARSHIP || "starship";
-```
 
 ## Provenance
 
