@@ -62,11 +62,11 @@ is truncated to the available width rather than wrapped further.
 |---|---|---|---|
 | `workflow-authoring` | Skill | `@quintinshaw/pi-dynamic-workflows` | Guidance and supporting references/examples for authoring and debugging workflow scripts |
 | `workflow-patterns` | Skill | `@quintinshaw/pi-dynamic-workflows` | Argument guidance for the five built-in workflow patterns |
-| `mcp-scripting` | Skill | `pi-mcp-adapter` | Guidance for composing multi-call `mcpScript` programs |
+| `mcp-scripting` | Skill | `pi-mcp-adapter` | Default-on, extension-discovered guidance for composing multi-call `mcpScript` programs |
 | `pi-cc-extensions/themes` | Theme collection | `pi-cc-extensions` | All JSON themes shipped by the pinned dependency |
 | `pi-catppuccin/themes` | Theme collection | `@sherif-fanous/pi-catppuccin` | All four Catppuccin flavors |
 
-The root manifest names the extensions and skills through exact `node_modules/` paths and exposes the dependency-owned theme directories. Pi does not recursively activate dependency package manifests.
+The root manifest names the extensions and two workflow skills through exact `node_modules/` paths and exposes the dependency-owned theme directories. `pi-mcp-adapter` contributes `mcp-scripting` through Pi's `resources_discover` extension event whenever `settings.scriptMode` is enabled. Pi does not recursively activate dependency package manifests.
 
 ## Install
 
@@ -80,7 +80,7 @@ pi install /absolute/path/to/pi-distribution
 pi install git:github.com/ningw42/pi-distribution@<revision>
 ```
 
-Pi runs `npm install` for Git packages. This repository commits `package-lock.json`, uses exact dependency versions, and configures npm to leave Pi-provided peer packages unresolved so Pi supplies its own runtime modules. Installing the aggregate makes all declared extensions, skills, and themes available.
+Pi runs `npm install` for Git packages. This repository commits `package-lock.json`, uses exact dependency versions, and configures npm to leave Pi-provided peer packages unresolved so Pi supplies its own runtime modules. Installing the aggregate makes all declared resources available, plus the MCP adapter's default-on `mcp-scripting` skill.
 
 ### Offline Windows release artifact
 
@@ -117,15 +117,16 @@ export PI_STATUSLINE_STARSHIP=/absolute/path/to/starship
 
 ## Resource scope
 
-The aggregate root is the public resource interface. Its `package.json` explicitly declares the complete curated resource set:
+The aggregate root is the public resource interface. Its `package.json` explicitly declares the static curated resource set:
 
 - the extensions listed above;
 - `workflow-authoring` and `workflow-patterns` from dynamic workflows;
-- `mcp-scripting` from the MCP adapter;
 - every JSON theme in the pinned Pi CC Extensions theme directory;
 - all four themes in the pinned `@sherif-fanous/pi-catppuccin` package.
 
-No dependency ships a prompt template, so `pi.prompts` is absent. Extension and skill entries use exact paths. The theme entries deliberately expose only the two dependency-owned theme directories, allowing each dependency to own its inventory without activating dependency manifests or unrelated files elsewhere under `node_modules`.
+The MCP adapter owns the lifecycle of its `mcp-scripting` skill. It discovers the skill alongside the default-on `mcpScript` tool and hides both when `settings.scriptMode` is `false`; the aggregate does not duplicate that skill in `pi.skills`.
+
+No dependency ships a prompt template, so `pi.prompts` is absent. Extension and statically declared skill entries use exact paths. The theme entries deliberately expose only the two dependency-owned theme directories, allowing each dependency to own its inventory without activating dependency manifests or unrelated files elsewhere under `node_modules`.
 
 The themes are available after installation, but installation does not select one. Use the bundled `pi-theme-picker` extension's `/theme` command to preview, select, and persist a theme, or configure one manually. Theme selection remains consumer configuration.
 
@@ -169,9 +170,10 @@ The smoke test:
 3. extracts that tarball into a temporary clean directory without contacting npm;
 4. loads each forwarding shim independently with Pi RPC mode;
 5. loads the aggregate and checks representative extension commands;
-6. verifies the declared skill commands and their provenance;
-7. verifies every file under the declared skill and theme resources and the absence of prompt templates;
-8. fails on extension errors, missing packed resources, or extracted-manifest drift.
+6. verifies the declared and extension-discovered skill commands and their provenance;
+7. verifies that disabling MCP script mode removes both `mcpScript` and `mcp-scripting`;
+8. verifies every file under the declared skill and theme resources, the extension-discovered skill file, and the absence of prompt templates;
+9. fails on extension errors, missing packed resources, or extracted-manifest drift.
 
 Set `KEEP_SMOKE_TMP=1` to retain its temporary package and logs for inspection. Set `SMOKE_PACK_DESTINATION` to retain the exact tarball that passed registry-free extraction and Pi smoke checks; the release workflow uses this on native Windows x64 and ARM64 runners.
 

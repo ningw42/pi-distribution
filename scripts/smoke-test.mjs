@@ -89,9 +89,12 @@ const expectedSkillFiles = expectedSkillResources.flatMap(collectResourceFiles);
 const expectedThemeFiles = expectedThemeResources.flatMap(collectResourceFiles);
 
 function rpcSmoke(source) {
+  const sources = Array.isArray(source) ? source : [source];
+  const sourceArgs = sources.flatMap((path) => ["-e", path]);
+  const sourceLabel = sources.join(", ");
   const result = run(
     process.execPath,
-    [piCli, "--mode", "rpc", "--no-session", "-e", source],
+    [piCli, "--mode", "rpc", "--no-session", ...sourceArgs],
     {
       cwd: workDir,
       input: '{"id":"smoke","type":"get_commands"}\n',
@@ -112,10 +115,10 @@ function rpcSmoke(source) {
     .filter(Boolean)
     .map((line) => JSON.parse(line));
   const extensionErrors = events.filter((event) => event.type === "extension_error");
-  assert.deepEqual(extensionErrors, [], `${source} emitted extension_error`);
+  assert.deepEqual(extensionErrors, [], `${sourceLabel} emitted extension_error`);
   const response = events.find((event) => event.id === "smoke" && event.type === "response");
-  assert.ok(response, `${source} did not answer get_commands`);
-  assert.equal(response.success, true, `${source} returned an unsuccessful RPC response`);
+  assert.ok(response, `${sourceLabel} did not answer get_commands`);
+  assert.equal(response.success, true, `${sourceLabel} returned an unsuccessful RPC response`);
   return response.data.commands;
 }
 
@@ -189,6 +192,7 @@ try {
     "node_modules/@sherif-fanous/pi-catppuccin/package.json",
     "node_modules/@sherif-fanous/pi-catppuccin/LICENSE",
     "node_modules/pi-mcp-adapter/index.ts",
+    "node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md",
     "node_modules/@thinkscape/pi-status/src/index.ts",
     "node_modules/@thinkscape/pi-status/LICENSE",
     "node_modules/@tifan/pi-inline-skills/package.json",
@@ -295,7 +299,7 @@ try {
     [
       "skill:mcp-scripting",
       join(extractedPackage, "node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md"),
-      "cli",
+      "extension:index",
       "temporary",
       "top-level",
     ],
@@ -317,8 +321,30 @@ try {
     "the aggregate exposed an undeclared prompt template",
   );
 
+  writeFileSync(
+    join(configDir, "mcp.json"),
+    `${JSON.stringify({ settings: { scriptMode: false }, mcpServers: {} }, null, 2)}\n`,
+  );
+  const scriptModeProbe = join(tempRoot, "assert-script-mode-disabled.mjs");
+  writeFileSync(
+    scriptModeProbe,
+    `export default function (pi) {\n` +
+      `  pi.on("session_start", () => {\n` +
+      `    if (pi.getAllTools().some((tool) => tool.name === "mcpScript")) {\n` +
+      `      throw new Error("mcpScript is registered while settings.scriptMode is false");\n` +
+      `    }\n` +
+      `  });\n` +
+      `}\n`,
+  );
+  const scriptModeDisabledCommands = rpcSmoke([extractedPackage, scriptModeProbe]);
+  assert.equal(
+    scriptModeDisabledCommands.some((command) => command.name === "skill:mcp-scripting"),
+    false,
+    "the aggregate exposed mcp-scripting while settings.scriptMode is false",
+  );
+
   console.log(
-    `smoke test passed: ${pkg.pi.extensions.length} extensions, ${pkg.pi.skills.length} skills, and ${expectedThemeFiles.filter((path) => path.endsWith(".json")).length} themes loaded from ${packed.filename} (${packed.size} bytes)`,
+    `smoke test passed: ${pkg.pi.extensions.length} extensions, ${expectedSkillCommands.length} default skills, and ${expectedThemeFiles.filter((path) => path.endsWith(".json")).length} themes loaded from ${packed.filename} (${packed.size} bytes)`,
   );
 } finally {
   if (process.env.KEEP_SMOKE_TMP === "1") {

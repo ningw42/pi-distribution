@@ -90,9 +90,10 @@ copied into `vendor/`:
 Exact installed versions are recorded in `package.json` and `package-lock.json`.
 
 The aggregate also exposes the two workflow skills from
-`@quintinshaw/pi-dynamic-workflows`, the `mcp-scripting` skill from
-`pi-mcp-adapter`, every theme shipped in the pinned `pi-cc-extensions` theme
-directory, and all four themes from `@sherif-fanous/pi-catppuccin`. Their
+`@quintinshaw/pi-dynamic-workflows`; `pi-mcp-adapter` dynamically contributes
+its `mcp-scripting` skill while script mode is enabled. The aggregate also
+exposes every theme shipped in the pinned `pi-cc-extensions` theme directory
+and all four themes from `@sherif-fanous/pi-catppuccin`. Their
 upstream license files, supporting skill and theme files, and package metadata
 remain within their installed or bundled package directories. The bundled
 `@juicesharp/rpiv-ask-user-question`, `@juicesharp/rpiv-btw`,
