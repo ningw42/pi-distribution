@@ -1,47 +1,12 @@
 /**
- * Pi statusline extension — the pi counterpart of statusline.py in this directory.
+ * Package-maintained Pi footer: cached Starship segments, cumulative usage,
+ * context, model/effort, and per-turn generation metrics.
  *
- * statusline.py can't be reused as-is: claude-code / copilot-cli invoke an
- * external command and pipe it a JSON payload on stdin per render, whereas pi
- * has no such hook. Instead pi exposes an in-process *custom footer*
- * (`ctx.ui.setFooter`), so the extension renders the line itself and pulls the
- * numbers from `ctx` (sessionManager / model / context usage) plus
- * `pi.getThinkingLevel()`. This file reproduces the same LOOK:
+ * Display behavior: [README](../../README.md#extensions).
+ * Starship lookup: [runtime prerequisites](../../README.md#runtime-prerequisites).
  *
- *   <starship: dir + git>   $cost  ↑all-in (󰮆 non-cache-read 󱤟 cache%) ↓out (󱦟 1.4s 󱐋 82 T/s)  ▰▰▱▱ pct% used/limit  Model  effort
- *   └────────── left ──────────┘   └───────────────────────────── right group, flex-right ─────────────────────────────┘
- *
- * The full single row reserves four extra columns beyond its one-space gap.
- * If it does not fit, first omit both parenthesised token detail groups and
- * retry with a one-space gap. Otherwise use three independently truncated
- * rows, ordered from most frequently changing to least: tokens + cost;
- * model + effort + context; Starship left. The token + cost row also omits
- * both detail groups when needed to fit, before truncating.
- *
- * The parenthesised suffix on the output count shows TTFT then decode speed
- * together ("(󱦟 1.4s 󱐋 82 T/s)"). It stays hidden until a turn starts.
- * While the first token is pending, TTFT counts the in-progress wait from the
- * same `turn_start` anchor `tps.ts` (the pinned `@everyx/pi-status-line`
- * dependency) uses; the first token freezes TTFT while decode speed updates
- * alongside it. Unavailable TTFT uses "—" and speed uses "·", not zero. The
- * finalized message freezes the rate using the provider's exact output count.
- * Both readings persist until the next turn or session reset; repaints cannot
- * make them drift. Only the in-progress wait uses render-time `Date.now()`.
- *
- * Active generation readings (glyph, value, and units) use Mocha Yellow;
- * parentheses, placeholders, and frozen readings stay muted in Overlay 1.
- *
- * Effort uses Pi's active theme thinking-level color, matching the editor border.
- * Other colours are catppuccin-mocha (teal / sapphire / overlay 1 / yellow /
- * peach / flamingo), emitted as raw 24-bit ANSI rather than mapping onto pi's
- * semantic theme names. The left side shells out to
- * `starship module …` exactly like the python, but caches the result (refreshed
- * on session start, git branch change, and turn end) since the footer
- * re-renders far more often than a one-shot CLI statusline.
- *
- * Caveat vs claude-code: cost is summed from pi's per-model `cost` config, which
- * for the Copilot-backed catalog is NOTIONAL (flat-rate subscription), so the
- * "$" figure tracks modelled spend, not a real bill.
+ * Cost follows Pi's per-model configuration. For the Copilot-backed catalog,
+ * it represents notional spend under a flat-rate subscription, not a real bill.
  */
 
 import type { Usage } from "@earendil-works/pi-ai";
@@ -71,7 +36,7 @@ const RESET = "\x1b[0m";
 
 // Nerd-font progress-bar cells (Private Use Area): (left-cap, middle, right-cap),
 // empty vs filled. Written as \u escapes so the source survives any encoding
-// round-trip (mirrors the same note in statusline.py).
+// round-trip.
 const CTX_EMPTY = ["\uee00", "\uee01", "\uee02"];
 const CTX_FILLED = ["\uee03", "\uee04", "\uee05"];
 
@@ -84,7 +49,7 @@ const CACHE_HIT_ICON = "\u{f191f}";
 const TTFT_ICON = "\u{f199f}";
 const TPS_ICON = "\u{f140b}";
 
-// --- number / text helpers (ports of statusline.py) --------------------------
+// --- number / text helpers --------------------------------------------------
 
 /** Round half away from zero, like jq/C round. */
 function jround(x: number): number {
@@ -250,10 +215,9 @@ function renderRightSegments(
 	// count when zero and the rate when unknown, dropping empty parentheses.
 	// Visibility follows cumulative usage, including restored sessions.
 	const hitRate = cacheHitRate(metrics);
-	// One decimal, rounded jq-style through jround so this agrees with
-	// statusline.py digit for digit. The trailing zero is kept -- "80.0%" not
-	// "80%" -- so the segment does not change width as the rate drifts, which is
-	// why num() is not used here.
+	// One decimal, rounded jq-style through jround. Keep the trailing zero --
+	// "80.0%" not "80%" -- to avoid width changes when the fraction is zero;
+	// this is why num() is not used here.
 	const cacheHit =
 		hitRate === null
 			? ""
@@ -306,7 +270,6 @@ export default function (pi: ExtensionAPI) {
 	// rendered text and the in-progress wait clock.
 	const generation = new TurnMetrics();
 	let generationActive = false;
-	let turnStartedAt: number | null = null;
 	let tpsText: string | null = null;
 	let lastRenderRequestMs = 0;
 	let waitTicker: ReturnType<typeof setInterval> | undefined;
@@ -356,20 +319,24 @@ export default function (pi: ExtensionAPI) {
 	// first delta. A turn ending without a first token has no measured TTFT.
 	const renderGeneration = (now: number): string | null => {
 		if (generation.turnStartMs === null) return null;
-		const ttftMs = turnStartedAt === null ? generation.ttftMs : now - turnStartedAt;
+		const waiting = generationActive && generation.firstTokenMs === null;
+		const ttftMs = waiting ? now - generation.turnStartMs : generation.ttftMs;
 		const ttftText = `${TTFT_ICON} ${ttftMs === null ? "—" : fmtTtft(ttftMs)}`;
 		const speedText = `${TPS_ICON} ${tpsText ?? "· T/s"}`;
 		// Restore the enclosing group's muted color, not the terminal default.
-		const ttft = turnStartedAt === null ? ttftText : `${YELLOW}${ttftText}${OVERLAY_1}`;
+		const ttft = waiting ? `${YELLOW}${ttftText}${OVERLAY_1}` : ttftText;
 		const speed = generationActive && tpsText !== null ? `${YELLOW}${speedText}${OVERLAY_1}` : speedText;
 		return `${ttft} ${speed}`;
 	};
 
-	const resetGeneration = (): void => {
-		stopWaitTicker();
-		generation.clear();
+	const stopGeneration = (): void => {
 		generationActive = false;
-		turnStartedAt = null;
+		stopWaitTicker();
+	};
+
+	const resetGeneration = (): void => {
+		stopGeneration();
+		generation.clear();
 		tpsText = null;
 		invalidateMetrics();
 	};
@@ -388,7 +355,6 @@ export default function (pi: ExtensionAPI) {
 		const now = Date.now();
 		generation.startTurn(now);
 		generationActive = true;
-		turnStartedAt = now;
 		tpsText = null;
 		startWaitTicker();
 		lastRenderRequestMs = 0;
@@ -403,7 +369,6 @@ export default function (pi: ExtensionAPI) {
 		generation.addDelta(delta, now);
 
 		// The first delta freezes the module's TTFT; speed now updates beside it.
-		turnStartedAt = null;
 		stopWaitTicker();
 
 		// Inside the module's 250ms debounce, keep this turn's last rate or its
@@ -418,9 +383,7 @@ export default function (pi: ExtensionAPI) {
 		// A finalized assistant message can carry the provider's exact output
 		// count; the module prefers it over the chars estimate when present.
 		if (event.message.role === "assistant") {
-			generationActive = false;
-			turnStartedAt = null;
-			stopWaitTicker();
+			stopGeneration();
 			const tps = generation.averageTps(Date.now(), event.message.usage?.output);
 			if (tps !== null) tpsText = fmtTps(tps);
 		}
@@ -430,9 +393,7 @@ export default function (pi: ExtensionAPI) {
 	// Esc or a failed request can end a run while the first token is still
 	// pending; the wait ticker must not outlive its turn.
 	pi.on("agent_end", async () => {
-		generationActive = false;
-		turnStartedAt = null;
-		stopWaitTicker();
+		stopGeneration();
 		requestRender?.();
 	});
 
@@ -502,9 +463,7 @@ export default function (pi: ExtensionAPI) {
 	// Working-tree state (git_status / git_metrics) drifts as the agent edits
 	// files; refresh after each turn so the cached left side stays honest.
 	pi.on("turn_end", async (_event, ctx) => {
-		generationActive = false;
-		turnStartedAt = null;
-		stopWaitTicker();
+		stopGeneration();
 		invalidateMetrics();
 		requestRender?.();
 		refreshLeft(ctx.cwd);

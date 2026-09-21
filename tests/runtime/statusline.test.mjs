@@ -393,6 +393,59 @@ function assertGeneration(footer, ttft, tps, active = null) {
   assert.ok(footer.render(250)[0].includes(`${segments.tokens} ${generationSuffix(ttft, tps, active)}`));
 }
 
+test("repaints the pending wait until each terminal event, ignoring unrelated messages", async (t) => {
+  for (const event of ["message_end", "turn_end", "agent_end", "session_shutdown"]) {
+    await t.test(event, async (t) => {
+      t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 });
+      const { footer, emit, requestRender } = await createFooter(t);
+      await emit("turn_start");
+      const rendersBeforeTick = requestRender.mock.callCount();
+      t.mock.timers.tick(100);
+      assert.equal(requestRender.mock.callCount(), rendersBeforeTick + 1);
+      assertGeneration(footer, "0.1s", "·", "ttft");
+
+      await emit("message_end", { message: { role: "toolResult" } });
+      const rendersAfterTool = requestRender.mock.callCount();
+      t.mock.timers.tick(100);
+      assert.equal(requestRender.mock.callCount(), rendersAfterTool + 1);
+      assertGeneration(footer, "0.2s", "·", "ttft");
+
+      await emit(event, { message: { role: "assistant", stopReason: "error", usage: { output: 0 } } });
+      const rendersAfterEnd = requestRender.mock.callCount();
+      t.mock.timers.tick(1_000);
+      assert.equal(requestRender.mock.callCount(), rendersAfterEnd, "terminal events cancel pending wait repaints");
+      if (event === "session_shutdown") {
+        assert.deepEqual(footer.render(minimumWidth), [desktopRow(minimumWidth)]);
+      } else {
+        assertGeneration(footer, "—", "·");
+      }
+    });
+  }
+});
+
+test("keeps only one wait ticker and stops it on the first content delta", async (t) => {
+  for (const type of ["text_delta", "thinking_delta", "toolcall_delta"]) {
+    await t.test(type, async (t) => {
+      t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 });
+      const { footer, emit, requestRender } = await createFooter(t);
+      await emit("turn_start");
+      await emit("turn_start");
+      await emit("message_update", { assistantMessageEvent: { type: "text_start" } });
+      await emit("message_update", { assistantMessageEvent: { type, delta: "" } });
+      const rendersBeforeTick = requestRender.mock.callCount();
+      t.mock.timers.tick(100);
+      assert.equal(requestRender.mock.callCount(), rendersBeforeTick + 1, "restarting replaces the previous ticker");
+      assertGeneration(footer, "0.1s", "·", "ttft");
+
+      await emit("message_update", { assistantMessageEvent: { type, delta: "first token" } });
+      const rendersAfterDelta = requestRender.mock.callCount();
+      t.mock.timers.tick(1_000);
+      assert.equal(requestRender.mock.callCount(), rendersAfterDelta, "content stops pending wait repaints");
+      assertGeneration(footer, "0.1s", "·");
+    });
+  }
+});
+
 test("keeps TTFT beside live and finalized speed without repaint drift", async (t) => {
   let now = 10_000;
   t.mock.method(Date, "now", () => now);
