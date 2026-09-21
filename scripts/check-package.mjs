@@ -38,8 +38,8 @@ const expectedExtensions = [
 const expectedSkills = [
   "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring",
   "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns",
-  "./node_modules/pi-mcp-adapter/skills/mcp-scripting",
 ];
+const mcpScriptingSkillFile = "./node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md";
 const catppuccinThemeDirectory = "./node_modules/@sherif-fanous/pi-catppuccin/themes";
 const expectedCatppuccinThemeNames = [
   "catppuccin-frappe",
@@ -125,6 +125,11 @@ for (const [resourceType, expectedPaths] of Object.entries(pkg.pi)) {
     assert.equal(existsSync(join(root, path)), true, `missing pi.${resourceType} resource: ${path}`);
   }
 }
+assert.equal(
+  existsSync(join(root, mcpScriptingSkillFile)),
+  true,
+  `missing extension-discovered skill: ${mcpScriptingSkillFile}`,
+);
 
 const themeFiles = expectedThemes
   .flatMap((themeDirectory) => {
@@ -346,5 +351,5 @@ assert.match(
 );
 
 console.log(
-  `package checks passed: ${expectedExtensions.length} extensions, ${expectedSkills.length} skills, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
+  `package checks passed: ${expectedExtensions.length} extensions, ${expectedSkills.length} declared skills, 1 extension-discovered skill, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
 );

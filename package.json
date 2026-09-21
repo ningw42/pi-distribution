@@ -96,8 +96,7 @@
     ],
     "skills": [
       "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring",
-      "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns",
-      "./node_modules/pi-mcp-adapter/skills/mcp-scripting"
+      "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns"
     ],
     "themes": [
       "./node_modules/pi-cc-extensions/themes",
