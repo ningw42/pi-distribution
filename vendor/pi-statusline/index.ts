@@ -11,9 +11,12 @@
  *   <starship: dir + git>   $cost  ↑all-in (󰮆 non-cache-read 󱤟 cache%) ↓out (󱦟 1.4s 󱐋 82 T/s)  ▰▰▱▱ pct% used/limit  Model  effort
  *   └────────── left ──────────┘   └───────────────────────────── right group, flex-right ─────────────────────────────┘
  *
- * When that layout does not fit, use three independently truncated rows,
- * ordered from most frequently changing to least: tokens + cost;
- * model + effort + context; Starship left.
+ * The full single row reserves four extra columns beyond its one-space gap.
+ * If it does not fit, first omit both parenthesised token detail groups and
+ * retry with a one-space gap. Otherwise use three independently truncated
+ * rows, ordered from most frequently changing to least: tokens + cost;
+ * model + effort + context; Starship left. The token + cost row also omits
+ * both detail groups when needed to fit, before truncating.
  *
  * The parenthesised suffix on the output count shows TTFT then decode speed
  * together ("(󱦟 1.4s 󱐋 82 T/s)"). It stays hidden until a turn starts.
@@ -218,9 +221,13 @@ function cacheHitRate(metrics: Metrics): number | null {
 	return Math.max(0, Math.min(1, metrics.cacheRead / allInput));
 }
 
+// Extra breathing room beyond the single row's required one-space gap.
+const FULL_ROW_FIT_BUFFER = 4;
+
 interface RightSegments {
 	cost: string;
 	tokens: string;
+	compactTokens: string;
 	context: string;
 	model: string;
 	effort: string;
@@ -261,7 +268,9 @@ function renderRightSegments(
 	// Parentheses and inactive details stay muted. Active generation readings
 	// restore this color after their highlight so it cannot leak to parentheses.
 	const suffix = outputSuffix === null ? "" : ` ${OVERLAY_1}(${outputSuffix})${RESET}`;
-	const tokens = `${SAPPHIRE}↑${fmtTokens(allInput)}${RESET}${inputSuffix} ${SAPPHIRE}↓${fmtTokens(metrics.output)}${RESET}${suffix}`;
+	const input = `${SAPPHIRE}↑${fmtTokens(allInput)}${RESET}`;
+	const output = `${SAPPHIRE}↓${fmtTokens(metrics.output)}${RESET}`;
+	const tokens = `${input}${inputSuffix} ${output}${suffix}`;
 	const context =
 		pct === null || contextTokens === null
 			? `?% ?/${fmtTokens(limit)}`
@@ -269,6 +278,7 @@ function renderRightSegments(
 	return {
 		cost: `${TEAL}$${metrics.cost.toFixed(2)}${RESET}`,
 		tokens,
+		compactTokens: `${input} ${output}`,
 		context: `${FLAMINGO}${context}${RESET}`,
 		model: `${PEACH}${model}${RESET}`,
 		effort,
@@ -462,13 +472,25 @@ export default function (pi: ExtensionAPI) {
 						// Resolve at render time so effort and theme changes both apply.
 						theme.getThinkingBorderColor(effort)(effort),
 					);
-					const right = [segments.cost, segments.tokens, segments.context, segments.model, segments.effort].join(" ");
-					const gap = width - visibleWidth(left) - visibleWidth(right);
-					if (gap >= 1) {
-						return [truncateToWidth(left + " ".repeat(gap) + right, width)];
+					const leftWidth = visibleWidth(left);
+					// Prefer full details with breathing room, then just token totals.
+					for (const [tokens, minimumGap] of [
+						[segments.tokens, 1 + FULL_ROW_FIT_BUFFER],
+						[segments.compactTokens, 1],
+					] as const) {
+						const right = [segments.cost, tokens, segments.context, segments.model, segments.effort].join(" ");
+						const gap = width - leftWidth - visibleWidth(right);
+						if (gap >= minimumGap) {
+							return [truncateToWidth(left + " ".repeat(gap) + right, width)];
+						}
 					}
+					// Multiline has its own fit check: restore details whenever possible.
+					const fullTokenRow = `${segments.tokens} ${segments.cost}`;
+					const tokenRow = visibleWidth(fullTokenRow) <= width
+						? fullTokenRow
+						: `${segments.compactTokens} ${segments.cost}`;
 					return [
-						`${segments.tokens} ${segments.cost}`,
+						tokenRow,
 						`${segments.model} ${segments.effort} ${segments.context}`,
 						left,
 					].map((line) => truncateToWidth(line, width));

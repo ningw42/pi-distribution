@@ -45,16 +45,23 @@ The effort label uses Pi's active theme thinking-level color, matching the edito
 border via `theme.getThinkingBorderColor()`. It updates when effort changes and
 follows theme switches; the statusline defines no separate effort palette.
 
-The statusline keeps its single-line layout whenever the rendered content fits
-with at least one space between its left and right sections. Otherwise, it uses
-three left-aligned rows:
+The statusline tries these layouts in order:
 
-1. Tokens (including the generation suffix), then cost.
-2. Model, effort, then context.
-3. Starship directory and all Git segments.
+1. **Full single row:** all details, with four extra columns of breathing room
+   beyond the required one-space gap between the left and right sections.
+2. **Compact single row:** omit both parenthesized token groups (input/cache
+   details and TTFT/decode speed), keeping input/output totals and all other
+   sections. This layout needs only the one-space gap, without the extra buffer.
+3. **Three left-aligned rows:**
+   - Tokens, then cost. Keep both parenthesized groups when this row fits;
+     otherwise omit them before truncating.
+   - Model, effort, then context.
+   - Starship directory and all Git segments.
 
-The layout is recalculated on each render, including terminal resizes. Each row
-is truncated to the available width rather than wrapped further.
+The layout is recalculated on each render, including terminal resizes. Hidden
+parenthesized details return whenever the selected layout has room for them;
+measuring generation metrics continues even while they are hidden. Each row is
+truncated to the available width rather than wrapped further.
 
 ### Skills and themes
 

@@ -39,18 +39,22 @@ const segments = {
   effort: defaultTheme.getThinkingBorderColor("high")("high"),
 };
 const right = [segments.cost, segments.tokens, segments.context, segments.model, segments.effort].join(" ");
-const minimumWidth = visibleWidth(left) + 1 + visibleWidth(right);
+const minimumWidth = visibleWidth(left) + 5 + visibleWidth(right);
+const compactTokens = [color("116;199;236", "↑10k"), color("116;199;236", "↓300")].join(" ");
+const compactRight = [segments.cost, compactTokens, segments.context, segments.model, segments.effort].join(" ");
+const compactMinimumWidth = visibleWidth(left) + 1 + visibleWidth(compactRight);
 const mobileRows = [
   `${segments.tokens} ${segments.cost}`,
   `${segments.model} ${segments.effort} ${segments.context}`,
   left,
 ];
+const compactMobileRows = [`${compactTokens} ${segments.cost}`, mobileRows[1], left];
 
-async function createFooter(t, { entries, reason = "startup", thinkingLevel = "high" } = {}) {
+async function createFooter(t, { entries, reason = "startup", thinkingLevel = "high", starshipModules = starship } = {}) {
   piTheme.setThemeInstance(defaultTheme);
   t.after(() => piTheme.setThemeInstance(defaultTheme));
   const execFile = t.mock.method(childProcess, "execFile", (_command, args, _options, callback) => {
-    queueMicrotask(() => callback(null, starship[args[1]] ?? ""));
+    queueMicrotask(() => callback(null, starshipModules[args[1]] ?? ""));
   });
   syncBuiltinESMExports();
   t.after(() => {
@@ -107,8 +111,8 @@ async function createFooter(t, { entries, reason = "startup", thinkingLevel = "h
   };
 }
 
-function desktopRow(width) {
-  return truncateToWidth(left + " ".repeat(width - visibleWidth(left) - visibleWidth(right)) + right, width);
+function desktopRow(width, renderedRight = right, renderedLeft = left) {
+  return truncateToWidth(renderedLeft + " ".repeat(width - visibleWidth(renderedLeft) - visibleWidth(renderedRight)) + renderedRight, width);
 }
 
 test("renders the single-line text, colors, order, and right alignment", async (t) => {
@@ -120,9 +124,13 @@ test("renders the single-line text, colors, order, and right alignment", async (
 
 function assertEffort(footer, effort) {
   const expectedRight = [segments.cost, segments.tokens, segments.context, segments.model, effort].join(" ");
-  const width = visibleWidth(left) + 1 + visibleWidth(expectedRight);
-  assert.deepEqual(footer.render(width), [truncateToWidth(`${left} ${expectedRight}`, width)]);
-  assert.deepEqual(footer.render(width - 1), [
+  const width = visibleWidth(left) + 5 + visibleWidth(expectedRight);
+  const expectedCompactRight = [segments.cost, compactTokens, segments.context, segments.model, effort].join(" ");
+  const compactWidth = visibleWidth(left) + 1 + visibleWidth(expectedCompactRight);
+  assert.deepEqual(footer.render(width), [desktopRow(width, expectedRight)]);
+  assert.deepEqual(footer.render(width - 1), [desktopRow(width - 1, expectedCompactRight)]);
+  assert.deepEqual(footer.render(compactWidth), [desktopRow(compactWidth, expectedCompactRight)]);
+  assert.deepEqual(footer.render(compactWidth - 1), [
     mobileRows[0], `${segments.model} ${effort} ${segments.context}`, left,
   ]);
 }
@@ -213,9 +221,14 @@ test("renders token details from usage for both new and resumed sessions", async
         ].join(" ");
         const cost = color("148;226;213", "$0.00");
         const expectedRight = [cost, tokens, segments.context, segments.model, segments.effort].join(" ");
-        const width = visibleWidth(left) + 1 + visibleWidth(expectedRight);
-        assert.deepEqual(footer.render(width), [truncateToWidth(`${left} ${expectedRight}`, width)]);
-        assert.deepEqual(footer.render(width - 1), [`${tokens} ${cost}`, mobileRows[1], left]);
+        const compact = [color("116;199;236", fixture.input), color("116;199;236", fixture.output)].join(" ");
+        const expectedCompactRight = [cost, compact, segments.context, segments.model, segments.effort].join(" ");
+        const width = visibleWidth(left) + 5 + visibleWidth(expectedRight);
+        const compactWidth = visibleWidth(left) + 1 + visibleWidth(expectedCompactRight);
+        assert.deepEqual(footer.render(width), [desktopRow(width, expectedRight)]);
+        assert.deepEqual(footer.render(width - 1), [desktopRow(width - 1, expectedCompactRight)]);
+        assert.deepEqual(footer.render(compactWidth), [desktopRow(compactWidth, expectedCompactRight)]);
+        assert.deepEqual(footer.render(compactWidth - 1), [`${tokens} ${cost}`, mobileRows[1], left]);
       });
     }
   }
@@ -234,10 +247,26 @@ test("shows input details when usage arrives after an empty render", async (t) =
   assert.deepEqual(footer.render(minimumWidth), [desktopRow(minimumWidth)]);
 });
 
-test("switches at the actual display width, including the one-column gap", async (t) => {
+test("reserves four extra columns for the full row but only one gap column for the compact row", async (t) => {
   const { footer } = await createFooter(t);
   assert.deepEqual(footer.render(minimumWidth), [desktopRow(minimumWidth)]);
-  assert.deepEqual(footer.render(minimumWidth - 1), mobileRows);
+  for (let width = compactMinimumWidth; width < minimumWidth; width++) {
+    assert.deepEqual(footer.render(width), [desktopRow(width, compactRight)], `compact at ${width} columns`);
+    assert.equal(visibleWidth(footer.render(width)[0]), width);
+  }
+  assert.deepEqual(footer.render(compactMinimumWidth - 1), mobileRows);
+});
+
+test("preserves parentheses outside the token section in compact mode", async (t) => {
+  const starshipModules = { ...starship, directory: color("137;180;250", "~/项目/(scratch)/😀") };
+  const customLeft = Object.values(starshipModules).join(" ");
+  const { footer, ctx } = await createFooter(t, { starshipModules });
+  ctx.model.name = "Test Model (preview)";
+  const expectedRight = [
+    segments.cost, compactTokens, segments.context, color("250;179;135", ctx.model.name), segments.effort,
+  ].join(" ");
+  const width = visibleWidth(customLeft) + 1 + visibleWidth(expectedRight);
+  assert.deepEqual(footer.render(width), [desktopRow(width, expectedRight, customLeft)]);
 });
 
 test("orders mobile rows by component update frequency", async (t) => {
@@ -247,11 +276,24 @@ test("orders mobile rows by component update frequency", async (t) => {
   assert.deepEqual(footer.render(width), mobileRows);
 });
 
+test("compacts the token + cost row only when its full contents overflow", async (t) => {
+  const { footer } = await createFooter(t);
+  const fullWidth = visibleWidth(mobileRows[0]);
+  const compactWidth = visibleWidth(compactMobileRows[0]);
+  assert.deepEqual(footer.render(fullWidth), mobileRows.map((row) => truncateToWidth(row, fullWidth)));
+  for (const width of [fullWidth - 1, compactWidth + 1, compactWidth]) {
+    assert.deepEqual(footer.render(width), compactMobileRows.map((row) => truncateToWidth(row, width)));
+    assert.equal(footer.render(width)[0], compactMobileRows[0], "preserves complete token totals and cost");
+  }
+  assert.deepEqual(footer.render(compactWidth - 1), compactMobileRows.map((row) => truncateToWidth(row, compactWidth - 1)));
+});
+
 test("truncates each row independently without wrapping or exceeding the width", async (t) => {
   const { footer } = await createFooter(t);
   for (const width of [0, 1, 2, 10, 20, 40]) {
     const rows = footer.render(width);
-    assert.deepEqual(rows, mobileRows.map((row) => truncateToWidth(row, width)));
+    const expected = width >= visibleWidth(mobileRows[0]) ? mobileRows : compactMobileRows;
+    assert.deepEqual(rows, expected.map((row) => truncateToWidth(row, width)));
     for (const row of rows) {
       assert.ok(visibleWidth(row) <= width, `row exceeds ${width} columns`);
       assert.equal(row.includes("\n"), false);
@@ -261,28 +303,37 @@ test("truncates each row independently without wrapping or exceeding the width",
 
 test("recalculates layout when resizing in either direction without invalidation", async (t) => {
   const { footer } = await createFooter(t);
-  for (const width of [minimumWidth + 20, minimumWidth - 1, 20, minimumWidth, minimumWidth + 40]) {
+  for (const width of [minimumWidth + 20, minimumWidth - 1, compactMinimumWidth, compactMinimumWidth - 1, 20, compactMinimumWidth, minimumWidth, minimumWidth + 40]) {
+    const expectedMobileRows = width >= visibleWidth(mobileRows[0]) ? mobileRows : compactMobileRows;
     assert.deepEqual(
       footer.render(width),
       width >= minimumWidth
         ? [desktopRow(width)]
-        : mobileRows.map((row) => truncateToWidth(row, width)),
+        : width >= compactMinimumWidth
+          ? [desktopRow(width, compactRight)]
+          : expectedMobileRows.map((row) => truncateToWidth(row, width)),
     );
   }
 });
 
 test("recalculates the fit when content changes at a fixed terminal width", async (t) => {
   const { footer, ctx } = await createFooter(t);
-  assert.equal(footer.render(minimumWidth).length, 1);
+  assert.deepEqual(footer.render(minimumWidth), [desktopRow(minimumWidth)]);
   ctx.model.name += " Extended";
+  const expectedRight = [
+    segments.cost, compactTokens, segments.context, color("250;179;135", ctx.model.name), segments.effort,
+  ].join(" ");
+  assert.deepEqual(footer.render(minimumWidth), [desktopRow(minimumWidth, expectedRight)]);
+  ctx.model.name += " Extended".repeat(4);
   const rows = footer.render(minimumWidth);
   assert.equal(rows.length, 3);
-  assert.equal(rows[1], `${color("250;179;135", "Test Model Extended")} ${segments.effort} ${segments.context}`);
+  assert.equal(rows[0], mobileRows[0], "restores token details when the full token + cost row fits");
+  assert.equal(rows[1], `${color("250;179;135", ctx.model.name)} ${segments.effort} ${segments.context}`);
   ctx.model.name = "Test Model";
   assert.deepEqual(footer.render(minimumWidth), [desktopRow(minimumWidth)]);
 });
 
-test("keeps the generation suffix attached to tokens before cost in multiline mode", async (t) => {
+test("keeps both token detail groups when they fit and drops both before truncation", async (t) => {
   let now = 10_000;
   t.mock.method(Date, "now", () => now);
   const { footer, emit } = await createFooter(t);
@@ -291,12 +342,18 @@ test("keeps the generation suffix attached to tokens before cost in multiline mo
   const checkLayout = (suffix) => {
     const tokens = `${segments.tokens} ${suffix}`;
     const rows = [`${tokens} ${segments.cost}`, mobileRows[1], left];
-    assert.deepEqual(footer.render(minimumWidth), rows);
     const combinedRight = [segments.cost, tokens, segments.context, segments.model, segments.effort].join(" ");
-    const combinedWidth = visibleWidth(left) + 1 + visibleWidth(combinedRight);
-    assert.deepEqual(footer.render(combinedWidth), [truncateToWidth(`${left} ${combinedRight}`, combinedWidth)]);
-    for (let width = 0; width < combinedWidth; width++) {
-      assert.deepEqual(footer.render(width), rows.map((row) => truncateToWidth(row, width)));
+    const combinedWidth = visibleWidth(left) + 5 + visibleWidth(combinedRight);
+    for (let width = 0; width <= combinedWidth + 1; width++) {
+      const expectedMobileRows = width >= visibleWidth(rows[0]) ? rows : compactMobileRows;
+      const expected = width >= combinedWidth
+        ? [desktopRow(width, combinedRight)]
+        : width >= compactMinimumWidth
+          ? [desktopRow(width, compactRight)]
+          : expectedMobileRows.map((row) => truncateToWidth(row, width));
+      const actual = footer.render(width);
+      assert.deepEqual(actual, expected, `layout at ${width} columns`);
+      assert.ok(actual.every((row) => visibleWidth(row) <= width && !row.includes("\n")));
     }
   };
   checkLayout(generationSuffix("1.5s", "·", "ttft"));
@@ -304,6 +361,25 @@ test("keeps the generation suffix attached to tokens before cost in multiline mo
   now += 500;
   await emit("message_update", { assistantMessageEvent: { delta: "b".repeat(40) } });
   checkLayout(generationSuffix("1.5s", "40", "tps"));
+  await emit("message_end", { message: { role: "assistant", usage: { output: 300 } } });
+  checkLayout(generationSuffix("1.5s", "600"));
+});
+
+test("compacts generation details even when there are no input details", async (t) => {
+  t.mock.method(Date, "now", () => 10_000);
+  const { footer, emit } = await createFooter(t, { entries: [] });
+  await emit("turn_start");
+  const counts = [color("116;199;236", "↑0"), color("116;199;236", "↓0")].join(" ");
+  const tokens = `${counts} ${generationSuffix("0.0s", "·", "ttft")}`;
+  const cost = color("148;226;213", "$0.00");
+  const expectedRight = [cost, tokens, segments.context, segments.model, segments.effort].join(" ");
+  const width = visibleWidth(left) + 5 + visibleWidth(expectedRight);
+  const expectedCompactRight = [cost, counts, segments.context, segments.model, segments.effort].join(" ");
+  assert.deepEqual(footer.render(width), [desktopRow(width, expectedRight)]);
+  assert.deepEqual(footer.render(width - 1), [desktopRow(width - 1, expectedCompactRight)]);
+  const tokenRow = `${tokens} ${cost}`;
+  assert.equal(footer.render(visibleWidth(tokenRow))[0], tokenRow);
+  assert.equal(footer.render(visibleWidth(tokenRow) - 1)[0], `${counts} ${cost}`);
 });
 
 function generationSuffix(ttft, tps, active = null) {
