@@ -29,7 +29,7 @@ The statusline imports the pure `tps.ts` metrics module from the pinned
 not exposed, and Pi does not activate dependency manifests.
 
 Once a turn starts, the output suffix shows TTFT then decode speed together:
-`(󱦟 1.4s 󱐋 82 T/s)`. Live and finalized speeds are rounded to whole tokens per
+`(󱦟 1.4s 󰓅 82 T/s)`. Live and finalized speeds are rounded to whole tokens per
 second. TTFT counts the pending wait, then freezes at the first text, thinking,
 or tool-call delta while speed updates alongside it. Unavailable
 TTFT uses `—` and speed uses `· T/s`; a request ending before its first token has

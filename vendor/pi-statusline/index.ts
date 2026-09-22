@@ -47,7 +47,7 @@ const CTX_FILLED = ["\uee03", "\uee04", "\uee05"];
 const NON_CACHE_READ_ICON = "\u{f0b86}";
 const CACHE_HIT_ICON = "\u{f191f}";
 const TTFT_ICON = "\u{f199f}";
-const TPS_ICON = "\u{f140b}";
+const TPS_ICON = "\u{f04c5}";
 
 // --- number / text helpers --------------------------------------------------
 

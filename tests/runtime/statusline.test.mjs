@@ -385,7 +385,7 @@ test("compacts generation details even when there are no input details", async (
 function generationSuffix(ttft, tps, active = null) {
   const highlight = (text) => `\x1b[38;2;249;226;175m${text}\x1b[38;2;127;132;156m`;
   const ttftText = `\u{f199f} ${ttft}`;
-  const tpsText = `\u{f140b} ${tps} T/s`;
+  const tpsText = `\u{f04c5} ${tps} T/s`;
   return color("127;132;156", `(${active === "ttft" ? highlight(ttftText) : ttftText} ${active === "tps" ? highlight(tpsText) : tpsText})`);
 }
 
