@@ -70,7 +70,7 @@ function fmtTokens(n: number): string {
 
 /** Live and finalized decode speed, rounded to whole tokens per second. */
 function fmtTps(tps: number): string {
-	return `${tps.toFixed(0)} T/s`;
+	return `${tps.toFixed(0)}T/s`;
 }
 
 /** Prefill wait in seconds for the output suffix: "0.0s" through "10.5s". */
@@ -322,7 +322,7 @@ export default function (pi: ExtensionAPI) {
 		const waiting = generationActive && generation.firstTokenMs === null;
 		const ttftMs = waiting ? now - generation.turnStartMs : generation.ttftMs;
 		const ttftText = `${TTFT_ICON} ${ttftMs === null ? "—" : fmtTtft(ttftMs)}`;
-		const speedText = `${TPS_ICON} ${tpsText ?? "· T/s"}`;
+		const speedText = `${TPS_ICON} ${tpsText ?? "·T/s"}`;
 		// Restore the enclosing group's muted color, not the terminal default.
 		const ttft = waiting ? `${YELLOW}${ttftText}${OVERLAY_1}` : ttftText;
 		const speed = generationActive && tpsText !== null ? `${YELLOW}${speedText}${OVERLAY_1}` : speedText;
