@@ -322,7 +322,7 @@ try {
   );
 
   writeFileSync(
-    join(configDir, "mcp.json"),
+    join(configDir, "mcp-adapter.json"),
     `${JSON.stringify({ settings: { scriptMode: false }, mcpServers: {} }, null, 2)}\n`,
   );
   const scriptModeProbe = join(tempRoot, "assert-script-mode-disabled.mjs");
