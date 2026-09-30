@@ -15,14 +15,14 @@ import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { getPiCommands } from "../tests/helpers/pi-rpc.mjs";
 import { getPiRuntime } from "../tests/helpers/pi-runtime.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const rtkMetadata = JSON.parse(readFileSync(join(root, "vendor/pi-rtk/metadata.json"), "utf8"));
-const { version: piVersion, cli: piCli } = getPiRuntime();
+const { version: piVersion } = getPiRuntime();
 const smokeProcessEnv = { ...process.env };
-delete smokeProcessEnv.PI_PACKAGE_DIR;
 const expectedSkillResources = pkg.pi.skills;
 const expectedThemeResources = pkg.pi.themes;
 const tempRoot = mkdtempSync(join(tmpdir(), "pi-distribution-smoke-"));
@@ -89,37 +89,17 @@ const expectedSkillFiles = expectedSkillResources.flatMap(collectResourceFiles);
 const expectedThemeFiles = expectedThemeResources.flatMap(collectResourceFiles);
 
 function rpcSmoke(source) {
-  const sources = Array.isArray(source) ? source : [source];
-  const sourceArgs = sources.flatMap((path) => ["-e", path]);
-  const sourceLabel = sources.join(", ");
-  const result = run(
-    process.execPath,
-    [piCli, "--mode", "rpc", "--no-session", ...sourceArgs],
-    {
-      cwd: workDir,
-      input: '{"id":"smoke","type":"get_commands"}\n',
-      timeout: 30_000,
-      env: {
-        ...smokeProcessEnv,
-        HOME: homeDir,
-        XDG_CONFIG_HOME: join(homeDir, ".config"),
-        PI_CODING_AGENT_DIR: configDir,
-        PATH: `${binDir}${delimiter}${smokeProcessEnv.PATH ?? ""}`,
-        NO_COLOR: "1",
-      },
+  return getPiCommands(source, {
+    cwd: workDir,
+    env: {
+      ...smokeProcessEnv,
+      HOME: homeDir,
+      XDG_CONFIG_HOME: join(homeDir, ".config"),
+      PI_CODING_AGENT_DIR: configDir,
+      PATH: `${binDir}${delimiter}${smokeProcessEnv.PATH ?? ""}`,
+      NO_COLOR: "1",
     },
-  );
-
-  const events = result.stdout
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
-  const extensionErrors = events.filter((event) => event.type === "extension_error");
-  assert.deepEqual(extensionErrors, [], `${sourceLabel} emitted extension_error`);
-  const response = events.find((event) => event.id === "smoke" && event.type === "response");
-  assert.ok(response, `${sourceLabel} did not answer get_commands`);
-  assert.equal(response.success, true, `${sourceLabel} returned an unsuccessful RPC response`);
-  return response.data.commands;
+  });
 }
 
 try {

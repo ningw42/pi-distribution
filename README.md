@@ -175,7 +175,7 @@ The smoke test:
 1. validates the manifest, shims, pins, RTK hash, and statusline portability;
 2. creates the npm tarball and checks its contents;
 3. extracts that tarball into a temporary clean directory without contacting npm;
-4. loads each forwarding shim independently with Pi RPC mode;
+4. loads each forwarding shim independently with Pi RPC mode, disabling built-in and auto-discovered extensions so only explicitly requested package extensions are tested;
 5. loads the aggregate and checks representative extension commands;
 6. verifies the declared and extension-discovered skill commands and their provenance;
 7. verifies that disabling MCP script mode removes both `mcpScript` and `mcp-scripting`;
