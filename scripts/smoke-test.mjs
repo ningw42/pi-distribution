@@ -241,7 +241,22 @@ try {
     console.log(`loaded ${basename(dirname(source))}`);
   }
 
-  const commands = rpcSmoke(extractedPackage);
+  const scriptModeProbe = join(tempRoot, "assert-script-mode.mjs");
+  function rpcWithScriptModeProbe(enabled) {
+    writeFileSync(
+      scriptModeProbe,
+      `export default function (pi) {\n` +
+        `  pi.on("session_start", () => {\n` +
+        `    if (pi.getAllTools().some((tool) => tool.name === "mcpScript") !== ${enabled}) {\n` +
+        `      throw new Error("mcpScript registration differs from expected scriptMode ${enabled}");\n` +
+        `    }\n` +
+        `  });\n` +
+        `}\n`,
+    );
+    return rpcSmoke([extractedPackage, scriptModeProbe]);
+  }
+
+  const commands = rpcWithScriptModeProbe(false);
   const commandNames = new Set(commands.filter((command) => command.source === "extension").map((command) => command.name));
   for (const expectedCommand of [
     "agents",
@@ -276,55 +291,51 @@ try {
       "temporary",
       "top-level",
     ],
-    [
-      "skill:mcp-scripting",
-      join(extractedPackage, "node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md"),
-      "extension:index",
-      "temporary",
-      "top-level",
-    ],
-  ].sort(([left], [right]) => left.localeCompare(right));
-  const skillCommands = commands
-    .filter((command) => command.source === "skill")
-    .map((command) => [
-      command.name,
-      command.sourceInfo?.path,
-      command.sourceInfo?.source,
-      command.sourceInfo?.scope,
-      command.sourceInfo?.origin,
-    ])
-    .sort(([left], [right]) => left.localeCompare(right));
-  assert.deepEqual(skillCommands, expectedSkillCommands, "aggregate skill commands or provenance differ");
+  ];
+  function assertSkillCommands(commands, expected) {
+    const skillCommands = commands
+      .filter((command) => command.source === "skill")
+      .map((command) => [
+        command.name,
+        command.sourceInfo?.path,
+        command.sourceInfo?.source,
+        command.sourceInfo?.scope,
+        command.sourceInfo?.origin,
+      ])
+      .sort(([left], [right]) => left.localeCompare(right));
+    assert.deepEqual(
+      skillCommands,
+      [...expected].sort(([left], [right]) => left.localeCompare(right)),
+      "aggregate skill commands or provenance differ",
+    );
+  }
+  assertSkillCommands(commands, expectedSkillCommands);
   assert.deepEqual(
     commands.filter((command) => command.source === "prompt"),
     [],
     "the aggregate exposed an undeclared prompt template",
   );
 
-  writeFileSync(
-    join(configDir, "mcp-adapter.json"),
-    `${JSON.stringify({ settings: { scriptMode: false }, mcpServers: {} }, null, 2)}\n`,
-  );
-  const scriptModeProbe = join(tempRoot, "assert-script-mode-disabled.mjs");
-  writeFileSync(
-    scriptModeProbe,
-    `export default function (pi) {\n` +
-      `  pi.on("session_start", () => {\n` +
-      `    if (pi.getAllTools().some((tool) => tool.name === "mcpScript")) {\n` +
-      `      throw new Error("mcpScript is registered while settings.scriptMode is false");\n` +
-      `    }\n` +
-      `  });\n` +
-      `}\n`,
-  );
-  const scriptModeDisabledCommands = rpcSmoke([extractedPackage, scriptModeProbe]);
-  assert.equal(
-    scriptModeDisabledCommands.some((command) => command.name === "skill:mcp-scripting"),
-    false,
-    "the aggregate exposed mcp-scripting while settings.scriptMode is false",
-  );
+  const scriptingSkillCommand = [
+    "skill:mcp-scripting",
+    join(extractedPackage, "node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md"),
+    "extension:index",
+    "temporary",
+    "top-level",
+  ];
+  for (const scriptMode of [true, false]) {
+    writeFileSync(
+      join(configDir, "mcp-adapter.json"),
+      `${JSON.stringify({ settings: { scriptMode }, mcpServers: {} }, null, 2)}\n`,
+    );
+    assertSkillCommands(
+      rpcWithScriptModeProbe(scriptMode),
+      [...expectedSkillCommands, ...(scriptMode ? [scriptingSkillCommand] : [])],
+    );
+  }
 
   console.log(
-    `smoke test passed: ${pkg.pi.extensions.length} extensions, ${expectedSkillCommands.length} default skills, and ${expectedThemeFiles.filter((path) => path.endsWith(".json")).length} themes loaded from ${packed.filename} (${packed.size} bytes)`,
+    `smoke test passed: ${pkg.pi.extensions.length} extensions, ${expectedSkillCommands.length} default skills, 1 opt-in skill, and ${expectedThemeFiles.filter((path) => path.endsWith(".json")).length} themes loaded from ${packed.filename} (${packed.size} bytes)`,
   );
 } finally {
   if (process.env.KEEP_SMOKE_TMP === "1") {
