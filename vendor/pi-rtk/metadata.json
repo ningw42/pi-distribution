@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "upstreamRepository": "rtk-ai/rtk",
-  "version": "0.50.0",
-  "tag": "v0.50.0",
-  "commit": "1d87b8e719ce0a50c223cd93ca64dd16921f9aec",
+  "version": "0.51.0",
+  "tag": "v0.51.0",
+  "commit": "e001f773f80b22b7dc4c7a79521b30e35aaef026",
   "generatorCommand": "rtk init -g --agent pi --no-patch",
   "upstreamSourcePath": "hooks/pi/rtk.ts",
   "generatedSourceSha256": "d1555e0af5872a30ed04059423350bdb38302f200a9642c5a9bcc519c95a2257",
