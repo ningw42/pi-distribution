@@ -27,8 +27,8 @@
   },
   "dependencies": {
     "@everyx/pi-status-line": "1.0.5",
-    "@juicesharp/rpiv-ask-user-question": "2.13.4",
-    "@juicesharp/rpiv-btw": "2.13.4",
+    "@juicesharp/rpiv-ask-user-question": "2.13.5",
+    "@juicesharp/rpiv-btw": "2.13.5",
     "@quintinshaw/pi-dynamic-workflows": "3.14.0",
     "@sherif-fanous/pi-catppuccin": "0.2.0",
     "@thinkscape/pi-status": "0.3.6",
