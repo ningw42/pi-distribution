@@ -30,6 +30,7 @@ const expectedExtensions = [
   "./extensions/pi-dynamic-workflows/index.ts",
   "./extensions/pi-inline-skills/index.ts",
   "./extensions/pi-input-history/index.ts",
+  "./extensions/pi-loop/index.ts",
   "./extensions/pi-mcp-adapter/index.ts",
   "./extensions/pi-theme-picker/index.ts",
   "./extensions/pi-subagents/index.ts",
@@ -55,6 +56,7 @@ const expectedDependencyNames = [
   "@everyx/pi-status-line",
   "@juicesharp/rpiv-ask-user-question",
   "@juicesharp/rpiv-btw",
+  "@pwguler/pi-loop",
   "@quintinshaw/pi-dynamic-workflows",
   "@sherif-fanous/pi-catppuccin",
   "@thinkscape/pi-status",
@@ -87,6 +89,8 @@ const shimTargets = {
   "extensions/pi-inline-skills/index.ts":
     "node_modules/@tifan/pi-inline-skills/src/index.ts",
   "extensions/pi-input-history/index.ts": "node_modules/pi-input-history/index.ts",
+  "extensions/pi-loop/index.ts":
+    "node_modules/@pwguler/pi-loop/extensions/pi-loop/index.ts",
   "extensions/pi-mcp-adapter/index.ts": "node_modules/pi-mcp-adapter/index.ts",
   "extensions/pi-theme-picker/index.ts": "node_modules/pi-theme-picker/index.ts",
   "extensions/pi-subagents/index.ts": "node_modules/@tintinweb/pi-subagents/src/index.ts",
@@ -103,6 +107,7 @@ const dependencyTargets = {
   "node_modules/@thinkscape/pi-status/src/index.ts": "@thinkscape/pi-status",
   "node_modules/@tifan/pi-inline-skills/src/index.ts": "@tifan/pi-inline-skills",
   "node_modules/pi-input-history/index.ts": "pi-input-history",
+  "node_modules/@pwguler/pi-loop/extensions/pi-loop/index.ts": "@pwguler/pi-loop",
   "node_modules/pi-theme-picker/index.ts": "pi-theme-picker",
   "node_modules/@tintinweb/pi-subagents/src/index.ts": "@tintinweb/pi-subagents",
   "node_modules/@tintinweb/pi-tasks/src/index.ts": "@tintinweb/pi-tasks",
@@ -188,6 +193,7 @@ for (const [path, target] of Object.entries(shimTargets)) {
 for (const dependency of [
   "@juicesharp/rpiv-ask-user-question",
   "@juicesharp/rpiv-btw",
+  "@pwguler/pi-loop",
   "@quintinshaw/pi-dynamic-workflows",
   "@sherif-fanous/pi-catppuccin",
   "@thinkscape/pi-status",
@@ -316,6 +322,27 @@ assert.match(inputHistoryLock.integrity, /^sha512-/);
 const inputHistoryPackage = readJson(`node_modules/${inputHistoryName}/package.json`);
 assert.equal(inputHistoryPackage.license, "MIT");
 assert.deepEqual(inputHistoryPackage.pi, { extensions: ["./index.ts"] });
+
+const loopName = "@pwguler/pi-loop";
+const loopVersion = pkg.dependencies[loopName];
+const loopLock = lock.packages[`node_modules/${loopName}`];
+assert.equal(loopLock.version, loopVersion);
+assert.equal(
+  loopLock.resolved,
+  `https://registry.npmjs.org/${loopName}/-/pi-loop-${loopVersion}.tgz`,
+);
+assert.match(loopLock.integrity, /^sha512-/);
+const loopPackage = readJson(`node_modules/${loopName}/package.json`);
+assert.equal(loopPackage.license, "MIT");
+assert.deepEqual(loopPackage.pi, { extensions: ["./extensions/pi-loop/index.ts"] });
+assert.match(readText(`node_modules/${loopName}/LICENSE`), /^MIT License\n/);
+for (const peer of Object.keys(loopPackage.peerDependencies)) {
+  assert.equal(
+    Object.hasOwn(lock.packages, `node_modules/${peer}`),
+    false,
+    `${loopName} host peer ${peer} must be supplied by Pi, not bundled`,
+  );
+}
 
 const rtkMetadata = readJson("vendor/pi-rtk/metadata.json");
 assert.equal(rtkMetadata.schemaVersion, 1);

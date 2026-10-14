@@ -29,6 +29,7 @@
     "@everyx/pi-status-line": "1.0.5",
     "@juicesharp/rpiv-ask-user-question": "2.13.8",
     "@juicesharp/rpiv-btw": "2.13.8",
+    "@pwguler/pi-loop": "0.7.0",
     "@quintinshaw/pi-dynamic-workflows": "3.14.0",
     "@sherif-fanous/pi-catppuccin": "0.3.0",
     "@thinkscape/pi-status": "0.3.6",
@@ -42,6 +43,7 @@
   },
   "bundleDependencies": [
     "@everyx/pi-status-line",
+    "@pwguler/pi-loop",
     "@quintinshaw/pi-dynamic-workflows",
     "@thinkscape/pi-status",
     "@tifan/pi-inline-skills",
@@ -86,6 +88,7 @@
       "./extensions/pi-dynamic-workflows/index.ts",
       "./extensions/pi-inline-skills/index.ts",
       "./extensions/pi-input-history/index.ts",
+      "./extensions/pi-loop/index.ts",
       "./extensions/pi-mcp-adapter/index.ts",
       "./extensions/pi-theme-picker/index.ts",
       "./extensions/pi-subagents/index.ts",

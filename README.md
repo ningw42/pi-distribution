@@ -19,6 +19,7 @@ The package exposes extensions through a uniform forwarding-shim layer, skills, 
 | `pi-dynamic-workflows` | npm dependency `@quintinshaw/pi-dynamic-workflows` | `package.json` |
 | `pi-inline-skills` | npm dependency `@tifan/pi-inline-skills`; adds inline `/skill` autocomplete and loads referenced skills for the turn | `package.json` |
 | `pi-input-history` | npm dependency; restores per-directory prompt history across sessions for Up/Down navigation and configurable fuzzy reverse search | `package.json` |
+| `pi-loop` | npm dependency `@pwguler/pi-loop`; schedules interval/cron prompts in the current interactive conversation through `/loop` | `package.json` |
 | `pi-mcp-adapter` | npm dependency | `package.json` |
 | `pi-theme-picker` | npm dependency; adds the `/theme` picker | `package.json` |
 | `pi-subagents` | npm dependency `@tintinweb/pi-subagents` | `package.json` |
@@ -112,7 +113,7 @@ The extracted directory already contains the package's npm runtime dependency cl
 
 ## Runtime prerequisites
 
-- Pi 0.84 or a compatible later version.
+- Pi 1.2.0 or a compatible later version, matching the verified smoke runtime.
 - `rtk >= 0.23` in `PATH`. The tracked generator release is recorded in [`vendor/pi-rtk/metadata.json`](vendor/pi-rtk/metadata.json).
 - `starship` in `PATH` for the statusline's directory and Git segments.
 
@@ -136,6 +137,40 @@ The MCP adapter owns the lifecycle of its `mcp-scripting` skill. It discovers th
 No dependency ships a prompt template, so `pi.prompts` is absent. Extension and statically declared skill entries use exact paths. The theme entries deliberately expose only the two dependency-owned theme directories, allowing each dependency to own its inventory without activating dependency manifests or unrelated files elsewhere under `node_modules`.
 
 The themes are available after installation, but installation does not select one. Use the bundled `pi-theme-picker` extension's `/theme` command to preview, select, and persist a theme, or configure one manually. Theme selection remains consumer configuration.
+
+## Scheduled loops
+
+The bundled `pi-loop` extension forwards to the unmodified `@pwguler/pi-loop`
+npm package. It schedules recurring prompts in the current conversation:
+
+```text
+/loop --name ci --max 12 5m check whether CI passed
+/loop
+/loop pause ci
+/loop resume ci
+/loop stop ci
+```
+
+Intervals have a one-minute minimum; five-field cron expressions are also
+supported. Nothing fires immediately on creation: the first prompt runs at
+the next local wall-clock grid point. Busy runs receive a queued follow-up,
+with at most one waiting fire per loop. Use `--max` or `--until` to bound a
+loop; passing `--name` avoids the optional model request used for naming.
+
+Only interactive TUI sessions claim ownership and fire prompts. RPC, JSON,
+and print sessions can edit schedules through `/loop` but never fire them.
+State persists per project in `.pi-loop/loops.json` and resumes in later TUI
+sessions. Grid points missed while Pi is offline are skipped. Stopping a loop
+prevents future submissions; it does not retract an already queued prompt.
+
+The aggregate preserves upstream behavior as-is. Ownership and state changes
+are not transactional across processes, and a rejected prompt can still count
+as a fire, including removal at `--max`. Use one interactive owner per project
+and treat scheduled delivery as best-effort.
+
+Only the extension is exposed; it adds no scheduling tools or extra curated
+resources. See the [upstream README](https://github.com/pwguler/pi-loop#usage)
+for the roster UI, cron syntax, file prompts, and persistence details.
 
 ## MCP scripting
 

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { getPiCommands } from "../helpers/pi-rpc.mjs";
 
 const adapter = fileURLToPath(new URL("../../extensions/pi-mcp-adapter/index.ts", import.meta.url));
+const loop = fileURLToPath(new URL("../../extensions/pi-loop/index.ts", import.meta.url));
 
 function fixture(t, scriptMode) {
   const root = mkdtempSync(join(tmpdir(), "pi-rpc-isolation-"));
@@ -80,6 +81,19 @@ test("RPC isolation still loads every explicitly requested extension", (t) => {
   const commands = getPiCommands([adapter, probe], options);
   assertIsolatedAdapter(commands);
   assert.equal(commands.find((command) => command.name === "explicit-probe")?.sourceInfo?.path, probe);
+});
+
+test("RPC loads only the loop command and leaves project state untouched", (t) => {
+  const { options } = fixture(t);
+  const commands = getPiCommands(loop, options);
+  assert.deepEqual(
+    commands.filter((command) => command.source === "extension").map((command) => command.name),
+    ["loop"],
+  );
+  assert.equal(commands.find((command) => command.name === "loop")?.sourceInfo?.path, loop);
+  assert.deepEqual(commands.filter((command) => command.source === "skill"), []);
+  assert.deepEqual(commands.filter((command) => command.source === "prompt"), []);
+  assert.equal(existsSync(join(options.cwd, ".pi-loop")), false);
 });
 
 test("RPC registers the MCP scripting tool and skill only when explicitly enabled", async (t) => {

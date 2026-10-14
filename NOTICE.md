@@ -67,6 +67,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
+## Scheduled loops
+
+`@pwguler/pi-loop` is consumed unmodified from the pinned npm dependency and
+exposed under the local extension name `pi-loop`; its implementation is not
+copied into `vendor/`.
+
+Upstream: <https://github.com/pwguler/pi-loop>
+
+License: MIT. The license file remains in the installed package directory at
+`node_modules/@pwguler/pi-loop/LICENSE`.
+
 ## Package dependencies
 
 The remaining extension implementations and their public Pi resources are
@@ -76,6 +87,7 @@ copied into `vendor/`:
 - `@everyx/pi-status-line` (MIT)
 - `@juicesharp/rpiv-ask-user-question` (MIT)
 - `@juicesharp/rpiv-btw` (MIT)
+- `@pwguler/pi-loop` (MIT)
 - `pi-cc-extensions`
 - `pi-input-history` (MIT)
 - `@sherif-fanous/pi-catppuccin` (MIT)
@@ -99,5 +111,5 @@ upstream license files, supporting skill and theme files, and package metadata
 remain within their installed or bundled package directories. The bundled
 `@juicesharp/rpiv-ask-user-question`, `@juicesharp/rpiv-btw`,
 `@sherif-fanous/pi-catppuccin`, `@thinkscape/pi-status`, `pi-input-history`,
-`pi-theme-picker`, and `@everyx/pi-status-line` packages include their MIT
-licenses.
+`pi-theme-picker`, `@everyx/pi-status-line`, and `@pwguler/pi-loop` packages
+include their MIT licenses.
