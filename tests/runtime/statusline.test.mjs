@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -12,9 +15,10 @@ const { createJiti } = await import(pathToFileURL(runtime.resolve("jiti")));
 const tui = await import(pathToFileURL(runtime.resolve("@earendil-works/pi-tui")));
 const { truncateToWidth, visibleWidth } = tui;
 const piTheme = await import(new URL("../modes/interactive/theme/theme.js", pathToFileURL(runtime.cli)));
-const defaultTheme = piTheme.loadThemeFromPath(fileURLToPath(new URL(
+const defaultThemePath = fileURLToPath(new URL(
   "../../node_modules/@sherif-fanous/pi-catppuccin/themes/catppuccin-mocha.json", import.meta.url,
-)), "truecolor");
+));
+const defaultTheme = piTheme.loadThemeFromPath(defaultThemePath, "truecolor");
 const alternateTheme = piTheme.loadThemeFromPath(fileURLToPath(new URL(
   "../modes/interactive/theme/dark.json", pathToFileURL(runtime.cli),
 )), "truecolor");
@@ -145,7 +149,7 @@ test("uses Pi's thinking-level colors and requests an immediate repaint for effo
   }
 });
 
-test("follows the active theme without recreating the footer, including Pi's max fallback", async (t) => {
+test("follows the active theme without recreating the footer, including explicit max colors", async (t) => {
   const { footer, setThinkingLevel } = await createFooter(t);
   for (const level of ["high", "max"]) {
     await setThinkingLevel(level);
@@ -162,9 +166,31 @@ test("follows the active theme without recreating the footer, including Pi's max
     footer.invalidate();
     assertEffort(footer, originalEffort);
   }
-  // Mocha omits thinkingMax; Pi owns its fallback to thinkingXhigh.
-  assert.equal(defaultTheme.getThinkingBorderColor("max")("max"), defaultTheme.fg("thinkingXhigh", "max"));
+  assert.equal(defaultTheme.getThinkingBorderColor("max")("max"), defaultTheme.fg("thinkingMax", "max"));
+  assert.notEqual(defaultTheme.fg("thinkingMax", "max"), defaultTheme.fg("thinkingXhigh", "max"));
   assert.notEqual(alternateTheme.fg("thinkingMax", "max"), alternateTheme.fg("thinkingXhigh", "max"));
+});
+
+test("uses Pi's max fallback when the active theme omits thinkingMax", async (t) => {
+  const themeDir = await mkdtemp(join(tmpdir(), "pi-statusline-theme-"));
+  t.after(() => rm(themeDir, { recursive: true, force: true }));
+  // Control the omission rather than relying on a dependency theme's palette.
+  const themeJson = JSON.parse(await readFile(defaultThemePath, "utf8"));
+  themeJson.name = "without-thinking-max";
+  delete themeJson.colors.thinkingMax;
+  const themePath = join(themeDir, `${themeJson.name}.json`);
+  await writeFile(themePath, JSON.stringify(themeJson));
+  const fallbackTheme = piTheme.loadThemeFromPath(themePath, "truecolor");
+
+  const { footer } = await createFooter(t, { thinkingLevel: "max" });
+  assertEffort(footer, defaultTheme.fg("thinkingMax", "max"));
+  piTheme.setThemeInstance(fallbackTheme);
+  footer.invalidate();
+  assertEffort(footer, fallbackTheme.fg("thinkingXhigh", "max"));
+
+  piTheme.setThemeInstance(defaultTheme);
+  footer.invalidate();
+  assertEffort(footer, defaultTheme.fg("thinkingMax", "max"));
 });
 
 test("renders token details from usage for both new and resumed sessions", async (t) => {
