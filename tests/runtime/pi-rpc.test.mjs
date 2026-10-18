@@ -7,10 +7,9 @@ import { fileURLToPath } from "node:url";
 
 import { getPiCommands } from "../helpers/pi-rpc.mjs";
 
-const adapter = fileURLToPath(new URL("../../extensions/pi-mcp-adapter/index.ts", import.meta.url));
 const loop = fileURLToPath(new URL("../../extensions/pi-loop/index.ts", import.meta.url));
 
-function fixture(t, scriptMode) {
+function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), "pi-rpc-isolation-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const home = join(root, "home");
@@ -26,12 +25,6 @@ function fixture(t, scriptMode) {
       `  pi.registerCommand("mcp", { handler: async () => {} });\n` +
       `}\n`,
   );
-  if (scriptMode !== undefined) {
-    writeFileSync(
-      join(config, "mcp-adapter.json"),
-      `${JSON.stringify({ settings: { scriptMode }, mcpServers: {} })}\n`,
-    );
-  }
   return {
     root,
     options: {
@@ -46,27 +39,20 @@ function fixture(t, scriptMode) {
   };
 }
 
-function assertIsolatedAdapter(commands, scriptingEnabled = false) {
-  const mcp = commands.find((command) => command.name === "mcp");
-  assert.ok(mcp, "the explicitly loaded adapter is missing /mcp");
-  assert.equal(mcp.source, "extension");
-  assert.equal(mcp.sourceInfo?.path, adapter);
+function assertIsolatedLoop(commands) {
+  const loopCommand = commands.find((command) => command.name === "loop");
+  assert.ok(loopCommand, "the explicitly loaded loop shim is missing /loop");
+  assert.equal(loopCommand.source, "extension");
+  assert.equal(loopCommand.sourceInfo?.path, loop);
   assert.equal(commands.some((command) => command.name === "ambient-command"), false);
+  // Both the ambient fixture and Pi's built-in MCP register /mcp.
+  assert.equal(commands.some((command) => command.name === "mcp"), false);
   assert.equal(commands.some((command) => command.sourceInfo?.source === "builtin"), false);
-  const scripting = commands.find((command) => command.name === "skill:mcp-scripting");
-  assert.equal(Boolean(scripting), scriptingEnabled, "MCP scripting skill differs from scriptMode");
-  if (scriptingEnabled) {
-    assert.equal(scripting.source, "skill");
-    assert.equal(
-      scripting.sourceInfo?.path,
-      fileURLToPath(new URL("../../node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md", import.meta.url)),
-    );
-  }
 }
 
-test("RPC isolates an explicit MCP shim from ambient and built-in command collisions", (t) => {
+test("RPC isolates an explicit shim from ambient and built-in commands", (t) => {
   const { options } = fixture(t);
-  assertIsolatedAdapter(getPiCommands(adapter, options));
+  assertIsolatedLoop(getPiCommands(loop, options));
 });
 
 test("RPC isolation still loads every explicitly requested extension", (t) => {
@@ -78,8 +64,8 @@ test("RPC isolation still loads every explicitly requested extension", (t) => {
       `  pi.registerCommand("explicit-probe", { handler: async () => {} });\n` +
       `}\n`,
   );
-  const commands = getPiCommands([adapter, probe], options);
-  assertIsolatedAdapter(commands);
+  const commands = getPiCommands([loop, probe], options);
+  assertIsolatedLoop(commands);
   assert.equal(commands.find((command) => command.name === "explicit-probe")?.sourceInfo?.path, probe);
 });
 
@@ -94,25 +80,4 @@ test("RPC loads only the loop command and leaves project state untouched", (t) =
   assert.deepEqual(commands.filter((command) => command.source === "skill"), []);
   assert.deepEqual(commands.filter((command) => command.source === "prompt"), []);
   assert.equal(existsSync(join(options.cwd, ".pi-loop")), false);
-});
-
-test("RPC registers the MCP scripting tool and skill only when explicitly enabled", async (t) => {
-  for (const [name, scriptMode] of [["omitted", undefined], ["disabled", false], ["enabled", true]]) {
-    await t.test(name, (t) => {
-      const { root, options } = fixture(t, scriptMode);
-      const probe = join(root, "script-mode-probe.mjs");
-      const enabled = scriptMode === true;
-      writeFileSync(
-        probe,
-        `export default function (pi) {\n` +
-          `  pi.on("session_start", () => {\n` +
-          `    if (pi.getAllTools().some((tool) => tool.name === "mcpScript") !== ${enabled}) {\n` +
-          `      throw new Error("mcpScript registration differs from scriptMode ${name}");\n` +
-          `    }\n` +
-          `  });\n` +
-          `}\n`,
-      );
-      assertIsolatedAdapter(getPiCommands([adapter, probe], options), enabled);
-    });
-  }
 });

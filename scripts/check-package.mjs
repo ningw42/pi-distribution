@@ -31,7 +31,6 @@ const expectedExtensions = [
   "./extensions/pi-inline-skills/index.ts",
   "./extensions/pi-input-history/index.ts",
   "./extensions/pi-loop/index.ts",
-  "./extensions/pi-mcp-adapter/index.ts",
   "./extensions/pi-theme-picker/index.ts",
   "./extensions/pi-subagents/index.ts",
   "./extensions/pi-tasks/index.ts",
@@ -40,7 +39,6 @@ const expectedSkills = [
   "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring",
   "./node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns",
 ];
-const mcpScriptingSkillFile = "./node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md";
 const catppuccinThemeDirectory = "./node_modules/@sherif-fanous/pi-catppuccin/themes";
 const expectedCatppuccinThemeNames = [
   "catppuccin-frappe",
@@ -65,7 +63,6 @@ const expectedDependencyNames = [
   "@tintinweb/pi-tasks",
   "pi-cc-extensions",
   "pi-input-history",
-  "pi-mcp-adapter",
   "pi-theme-picker",
 ];
 const smokePiName = "@earendil-works/pi-coding-agent";
@@ -91,7 +88,6 @@ const shimTargets = {
   "extensions/pi-input-history/index.ts": "node_modules/pi-input-history/index.ts",
   "extensions/pi-loop/index.ts":
     "node_modules/@pwguler/pi-loop/extensions/pi-loop/index.ts",
-  "extensions/pi-mcp-adapter/index.ts": "node_modules/pi-mcp-adapter/index.ts",
   "extensions/pi-theme-picker/index.ts": "node_modules/pi-theme-picker/index.ts",
   "extensions/pi-subagents/index.ts": "node_modules/@tintinweb/pi-subagents/src/index.ts",
   "extensions/pi-tasks/index.ts": "node_modules/@tintinweb/pi-tasks/src/index.ts",
@@ -103,7 +99,6 @@ const dependencyTargets = {
   "node_modules/pi-cc-extensions/extensions/index.ts": "pi-cc-extensions",
   "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts":
     "@quintinshaw/pi-dynamic-workflows",
-  "node_modules/pi-mcp-adapter/index.ts": "pi-mcp-adapter",
   "node_modules/@thinkscape/pi-status/src/index.ts": "@thinkscape/pi-status",
   "node_modules/@tifan/pi-inline-skills/src/index.ts": "@tifan/pi-inline-skills",
   "node_modules/pi-input-history/index.ts": "pi-input-history",
@@ -130,11 +125,6 @@ for (const [resourceType, expectedPaths] of Object.entries(pkg.pi)) {
     assert.equal(existsSync(join(root, path)), true, `missing pi.${resourceType} resource: ${path}`);
   }
 }
-assert.equal(
-  existsSync(join(root, mcpScriptingSkillFile)),
-  true,
-  `missing extension-discovered skill: ${mcpScriptingSkillFile}`,
-);
 
 const themeFiles = expectedThemes
   .flatMap((themeDirectory) => {
@@ -378,5 +368,5 @@ assert.match(
 );
 
 console.log(
-  `package checks passed: ${expectedExtensions.length} extensions, ${expectedSkills.length} declared skills, 1 extension-discovered skill, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
+  `package checks passed: ${expectedExtensions.length} extensions, ${expectedSkills.length} declared skills, ${themeFiles.length} themes, ${expectedDependencyNames.length} pinned dependencies, 1 pinned smoke runtime, 2 local implementations`,
 );

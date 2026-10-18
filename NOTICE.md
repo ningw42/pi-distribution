@@ -94,7 +94,6 @@ copied into `vendor/`:
 - `@thinkscape/pi-status` (MIT)
 - `@quintinshaw/pi-dynamic-workflows`, a continuation of Michael Livs'
   original `pi-dynamic-workflows`
-- `pi-mcp-adapter`
 - `pi-theme-picker` (MIT)
 - `@tintinweb/pi-subagents`
 - `@tintinweb/pi-tasks`
@@ -102,8 +101,7 @@ copied into `vendor/`:
 Exact installed versions are recorded in `package.json` and `package-lock.json`.
 
 The aggregate also exposes the two workflow skills from
-`@quintinshaw/pi-dynamic-workflows`; `pi-mcp-adapter` dynamically contributes
-its `mcp-scripting` skill while script mode is explicitly enabled (opt-in).
+`@quintinshaw/pi-dynamic-workflows`.
 The aggregate also exposes every theme shipped in the pinned
 `pi-cc-extensions` theme directory and all four themes from
 `@sherif-fanous/pi-catppuccin`. Their

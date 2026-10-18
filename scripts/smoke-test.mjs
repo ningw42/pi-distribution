@@ -120,24 +120,6 @@ try {
   assert.equal(existsSync(tarball), true);
 
   const archiveEntries = packed.files.map(({ path }) => toArchivePath(path));
-  const platformKey = `${process.platform}-${process.arch}`;
-  const platformArchiveEntries = {
-    "win32-x64": [
-      "node_modules/@napi-rs/keyring-win32-x64-msvc/package.json",
-      "node_modules/recheck-windows-x64/package.json",
-    ],
-    "win32-arm64": [
-      "node_modules/@napi-rs/keyring-win32-arm64-msvc/package.json",
-      "node_modules/recheck-jar/package.json",
-    ],
-  }[platformKey] ?? [];
-  const forbiddenPlatformPrefixes = {
-    "win32-x64": ["node_modules/@napi-rs/keyring-win32-arm64-msvc/"],
-    "win32-arm64": [
-      "node_modules/@napi-rs/keyring-win32-x64-msvc/",
-      "node_modules/recheck-windows-x64/",
-    ],
-  }[platformKey] ?? [];
   const requiredArchiveEntries = [
     "package.json",
     "extensions/pi-rtk/index.ts",
@@ -150,7 +132,6 @@ try {
     "extensions/pi-inline-skills/index.ts",
     "extensions/pi-input-history/index.ts",
     "extensions/pi-loop/index.ts",
-    "extensions/pi-mcp-adapter/index.ts",
     "extensions/pi-theme-picker/index.ts",
     "extensions/pi-subagents/index.ts",
     "extensions/pi-tasks/index.ts",
@@ -172,8 +153,6 @@ try {
     "node_modules/@quintinshaw/pi-dynamic-workflows/LICENSE",
     "node_modules/@sherif-fanous/pi-catppuccin/package.json",
     "node_modules/@sherif-fanous/pi-catppuccin/LICENSE",
-    "node_modules/pi-mcp-adapter/index.ts",
-    "node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md",
     "node_modules/@thinkscape/pi-status/src/index.ts",
     "node_modules/@thinkscape/pi-status/LICENSE",
     "node_modules/@tifan/pi-inline-skills/package.json",
@@ -188,10 +167,8 @@ try {
     "node_modules/pi-theme-picker/LICENSE",
     "node_modules/@tintinweb/pi-subagents/src/index.ts",
     "node_modules/@tintinweb/pi-tasks/src/index.ts",
-    ...platformArchiveEntries,
     ...[...expectedSkillFiles, ...expectedThemeFiles].map(toArchivePath),
   ];
-  assert.ok(platformArchiveEntries.length > 0 || process.platform !== "win32", `unsupported Windows artifact target: ${platformKey}`);
   for (const entry of requiredArchiveEntries) {
     assert.equal(archiveEntries.includes(entry), true, `packed artifact is missing ${entry}`);
   }
@@ -201,7 +178,6 @@ try {
     "themes/",
     "prompts/",
     "node_modules/@earendil-works/pi-coding-agent/",
-    ...forbiddenPlatformPrefixes,
   ]) {
     assert.equal(
       archiveEntries.some((entry) => entry.startsWith(forbiddenPrefix)),
@@ -215,29 +191,6 @@ try {
   assert.equal(existsSync(join(extractedPackage, "package.json")), true);
   const extractedManifest = JSON.parse(readFileSync(join(extractedPackage, "package.json"), "utf8"));
   assert.deepEqual(extractedManifest.pi, pkg.pi);
-  for (const entry of platformArchiveEntries) {
-    assert.equal(existsSync(join(extractedPackage, entry)), true, `extracted artifact is missing ${entry}`);
-  }
-
-  run(
-    process.execPath,
-    [
-      "-e",
-      `const assert = require("node:assert/strict");\n` +
-        `const keyring = require("./node_modules/@napi-rs/keyring");\n` +
-        `assert.equal(typeof keyring.Entry, "function");\n` +
-        `const { checkSync } = require("./node_modules/recheck");\n` +
-        `assert.equal(checkSync("a+", "").status, "safe");\n`,
-    ],
-    {
-      cwd: extractedPackage,
-      timeout: 60_000,
-      env: {
-        ...process.env,
-        ...(platformKey === "win32-arm64" ? { RECHECK_SYNC_BACKEND: "pure" } : {}),
-      },
-    },
-  );
 
   for (const extension of pkg.pi.extensions) {
     const source = join(extractedPackage, extension);
@@ -245,22 +198,7 @@ try {
     console.log(`loaded ${basename(dirname(source))}`);
   }
 
-  const scriptModeProbe = join(tempRoot, "assert-script-mode.mjs");
-  function rpcWithScriptModeProbe(enabled) {
-    writeFileSync(
-      scriptModeProbe,
-      `export default function (pi) {\n` +
-        `  pi.on("session_start", () => {\n` +
-        `    if (pi.getAllTools().some((tool) => tool.name === "mcpScript") !== ${enabled}) {\n` +
-        `      throw new Error("mcpScript registration differs from expected scriptMode ${enabled}");\n` +
-        `    }\n` +
-        `  });\n` +
-        `}\n`,
-    );
-    return rpcSmoke([extractedPackage, scriptModeProbe]);
-  }
-
-  const commands = rpcWithScriptModeProbe(false);
+  const commands = rpcSmoke(extractedPackage);
   const commandNames = new Set(commands.filter((command) => command.source === "extension").map((command) => command.name));
   for (const expectedCommand of [
     "agents",
@@ -268,7 +206,6 @@ try {
     "loaded-skills",
     "loop",
     "tasks",
-    "mcp",
     "pi-status",
     "theme",
     "workflows",
@@ -321,26 +258,8 @@ try {
     "the aggregate exposed an undeclared prompt template",
   );
 
-  const scriptingSkillCommand = [
-    "skill:mcp-scripting",
-    join(extractedPackage, "node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md"),
-    "extension:index",
-    "temporary",
-    "top-level",
-  ];
-  for (const scriptMode of [true, false]) {
-    writeFileSync(
-      join(configDir, "mcp-adapter.json"),
-      `${JSON.stringify({ settings: { scriptMode }, mcpServers: {} }, null, 2)}\n`,
-    );
-    assertSkillCommands(
-      rpcWithScriptModeProbe(scriptMode),
-      [...expectedSkillCommands, ...(scriptMode ? [scriptingSkillCommand] : [])],
-    );
-  }
-
   console.log(
-    `smoke test passed: ${pkg.pi.extensions.length} extensions, ${expectedSkillCommands.length} default skills, 1 opt-in skill, and ${expectedThemeFiles.filter((path) => path.endsWith(".json")).length} themes loaded from ${packed.filename} (${packed.size} bytes)`,
+    `smoke test passed: ${pkg.pi.extensions.length} extensions, ${expectedSkillCommands.length} skills, and ${expectedThemeFiles.filter((path) => path.endsWith(".json")).length} themes loaded from ${packed.filename} (${packed.size} bytes)`,
   );
 } finally {
   if (process.env.KEEP_SMOKE_TMP === "1") {
