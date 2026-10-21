@@ -87,7 +87,7 @@ const shimTargets = {
     "node_modules/@tifan/pi-inline-skills/src/index.ts",
   "extensions/pi-input-history/index.ts": "node_modules/pi-input-history/index.ts",
   "extensions/pi-loop/index.ts":
-    "node_modules/@pwguler/pi-loop/extensions/pi-loop/index.ts",
+    "node_modules/@pwguler/pi-loop/extensions/index.ts",
   "extensions/pi-theme-picker/index.ts": "node_modules/pi-theme-picker/index.ts",
   "extensions/pi-subagents/index.ts": "node_modules/@tintinweb/pi-subagents/src/index.ts",
   "extensions/pi-tasks/index.ts": "node_modules/@tintinweb/pi-tasks/src/index.ts",
@@ -102,7 +102,7 @@ const dependencyTargets = {
   "node_modules/@thinkscape/pi-status/src/index.ts": "@thinkscape/pi-status",
   "node_modules/@tifan/pi-inline-skills/src/index.ts": "@tifan/pi-inline-skills",
   "node_modules/pi-input-history/index.ts": "pi-input-history",
-  "node_modules/@pwguler/pi-loop/extensions/pi-loop/index.ts": "@pwguler/pi-loop",
+  "node_modules/@pwguler/pi-loop/extensions/index.ts": "@pwguler/pi-loop",
   "node_modules/pi-theme-picker/index.ts": "pi-theme-picker",
   "node_modules/@tintinweb/pi-subagents/src/index.ts": "@tintinweb/pi-subagents",
   "node_modules/@tintinweb/pi-tasks/src/index.ts": "@tintinweb/pi-tasks",
@@ -324,7 +324,7 @@ assert.equal(
 assert.match(loopLock.integrity, /^sha512-/);
 const loopPackage = readJson(`node_modules/${loopName}/package.json`);
 assert.equal(loopPackage.license, "MIT");
-assert.deepEqual(loopPackage.pi, { extensions: ["./extensions/pi-loop/index.ts"] });
+assert.deepEqual(loopPackage.pi, { extensions: ["./extensions/index.ts"] });
 assert.match(readText(`node_modules/${loopName}/LICENSE`), /^MIT License\n/);
 for (const peer of Object.keys(loopPackage.peerDependencies)) {
   assert.equal(

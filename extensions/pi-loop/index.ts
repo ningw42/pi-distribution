@@ -1,1 +1,1 @@
-export { default } from "../../node_modules/@pwguler/pi-loop/extensions/pi-loop/index.ts";
+export { default } from "../../node_modules/@pwguler/pi-loop/extensions/index.ts";
