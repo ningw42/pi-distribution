@@ -161,7 +161,7 @@ try {
     "node_modules/pi-input-history/index.ts",
     "node_modules/pi-input-history/LICENSE",
     "node_modules/@pwguler/pi-loop/package.json",
-    "node_modules/@pwguler/pi-loop/extensions/pi-loop/index.ts",
+    "node_modules/@pwguler/pi-loop/extensions/index.ts",
     "node_modules/@pwguler/pi-loop/LICENSE",
     "node_modules/pi-theme-picker/index.ts",
     "node_modules/pi-theme-picker/LICENSE",
