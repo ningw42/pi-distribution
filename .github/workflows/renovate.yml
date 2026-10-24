@@ -1,0 +1,143 @@
+name: Renovate
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 */4 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    # Enable only after the credentials and repository merge gates are configured.
+    if: github.ref == 'refs/heads/master' && vars.RENOVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout trusted workflow snapshot
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Download and verify the latest RTK release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          gh api repos/rtk-ai/rtk/releases/latest > "$work/release.json"
+          tag="$(jq -er '.tag_name' "$work/release.json")"
+          version="${tag#v}"
+          [[ "$tag" == "v$version" && "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          asset="rtk-x86_64-unknown-linux-musl.tar.gz"
+          mkdir -p "$work/download" "$work/extract"
+          gh release download "$tag" --repo rtk-ai/rtk \
+            --pattern "$asset" --pattern checksums.txt --dir "$work/download"
+          checksum_line="$(grep -F "  $asset" "$work/download/checksums.txt")"
+          [[ "$(printf '%s\n' "$checksum_line" | wc -l)" -eq 1 ]]
+          (cd "$work/download" && printf '%s\n' "$checksum_line" | sha256sum --check --strict -)
+          tar -xzf "$work/download/$asset" -C "$work/extract"
+          mapfile -t binaries < <(find "$work/extract" -type f -name rtk -print)
+          [[ "${#binaries[@]}" -eq 1 ]]
+          chmod +x "${binaries[0]}"
+          [[ "$("${binaries[0]}" --version)" == "rtk $version" ]]
+          echo "RTK_BIN=${binaries[0]}" >> "$GITHUB_ENV"
+
+      - name: Regenerate pi-rtk without publication credentials
+        env:
+          RTK_GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/update-pi-rtk.mjs
+
+      - name: Validate generated package
+        uses: ./.github/actions/validate-package
+
+      - name: Verify candidate data
+        env:
+          RTK_CANDIDATE_DIR: vendor/pi-rtk
+          RTK_BASE_DIR: ${{ runner.temp }}/rtk-base/vendor/pi-rtk
+          BASE_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/rtk-base"
+          git archive "$BASE_SHA" vendor/pi-rtk | tar -x -C "$RUNNER_TEMP/rtk-base"
+          node scripts/rtk-candidate.mjs --check
+          git diff --check
+
+      - name: Upload candidate from this run
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: rtk-candidate
+          path: |
+            vendor/pi-rtk/LICENSE
+            vendor/pi-rtk/index.ts
+            vendor/pi-rtk/metadata.json
+          if-no-files-found: error
+          retention-days: 1
+
+  renovate:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout trusted tooling only
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+
+      - name: Download candidate from this run
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: rtk-candidate
+          path: ${{ runner.temp }}/rtk-candidate
+
+      - name: Prepare read-only post-upgrade tooling
+        env:
+          RTK_CANDIDATE_DIR: ${{ runner.temp }}/rtk-candidate
+        run: |
+          node scripts/rtk-candidate.mjs --check
+          mkdir -p "$RUNNER_TEMP/renovate-tools"
+          cp scripts/rtk-candidate.mjs renovate.json5 "$RUNNER_TEMP/renovate-tools/"
+
+      - name: Verify PAT identity and required merge gates
+        env:
+          RENOVATE_TOKEN: ${{ secrets.RENOVATE_PAT }}
+          RENOVATE_ACTOR: ${{ vars.RENOVATE_ACTOR }}
+          REPOSITORY: ${{ github.repository }}
+        run: node scripts/check-renovate-setup.mjs
+
+      - name: Reject a stale preparation snapshot
+        env:
+          BASE_SHA: ${{ github.sha }}
+        run: |
+          [[ "$(git ls-remote origin refs/heads/master | cut -f1)" == "$BASE_SHA" ]] || {
+            echo "master advanced during preparation; rerun Renovate" >&2
+            exit 1
+          }
+
+      # No repository tests or downloaded RTK binary execute in this job.
+      # The only post-upgrade command copies already-validated artifact bytes.
+      - name: Run Renovate
+        uses: renovatebot/github-action@v46.3.9
+        with:
+          token: ${{ secrets.RENOVATE_PAT }}
+          renovate-version: 44.181.1
+          configurationFile: .github/renovate.config.cjs
+          mount-docker-socket: false
+          docker-volumes: |
+            ${{ runner.temp }}/rtk-candidate:/opt/rtk-candidate:ro ; ${{ runner.temp }}/renovate-tools:/opt/renovate-tools:ro
+          additional-env-list: RTK_CANDIDATE_DIR
+        env:
+          RTK_CANDIDATE_DIR: /opt/rtk-candidate
+          LOG_LEVEL: info

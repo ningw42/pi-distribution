@@ -1,195 +1,193 @@
 # Automation setup
 
-This repository uses separate automation paths for npm dependency updates, generated `pi-rtk` updates, automatic release tagging, and GitHub Release publication. Complete this one-time GitHub setup after the automation files have been pushed to `master`.
+This guide configures the repository's automation from scratch. Renovate runs in GitHub Actions on standard GitHub-hosted Linux runners. Exact npm and generated `pi-rtk` updates share one PR; required cross-platform CI gates automatic squash merging, and GitHub deletes the merged source branch.
 
-## Event flow
+## Event flow and credential boundaries
 
 ```text
-Renovate App -> npm update PR ------------------------┐
-                                                      |-> merge -> automatic CalVer tag --┐
-update_pi_rtk.yml -> generated pi-rtk update PR ------┘                                    |
-                                                                                           |-> tag-only release workflow
-Human pushes a vYY.MM.N tag ---------------------------------------------------------------┘
+renovate.yml: schedule / manual dispatch (master only)
+  |
+  +-- prepare: read-only GITHUB_TOKEN
+  |     download RTK release + verify checksum
+  |     generate source + verify upstream source/license/provenance
+  |     run package/runtime/smoke validation
+  |     upload the three generated files (one-day retention)
+  |
+  +-- renovate: dedicated RENOVATE_PAT
+        verify PAT identity and repository merge gates
+        scan npm dependencies + RTK GitHub releases
+        copy the verified RTK candidate when RTK changes
+        create/update renovate/dependencies + request auto-merge
+          |
+          +-- required Linux x64 / Windows x64 / Windows ARM64 CI
+                |
+                +-- automatic squash merge + source branch deletion
+                      |
+                      +-- validate update -> RELEASE_PAT pushes CalVer tag
+                            |
+                            +-- tag-only release workflow
+                                  |
+                                  +-- KURA_WORKFLOW_PAT dispatches Kura updater
 ```
 
-The publisher reacts only to tag pushes. When it creates a release, it asks GitHub to generate the description from merged pull requests since the previous release. Automatic tag pushes must use a non-`GITHUB_TOKEN` credential so GitHub starts the downstream release workflow. After the release job succeeds, including asset uploads, `trigger-kura-update` dispatches `ningw42/kura`'s `auto-update-packages.yml` on `master` using the separate `KURA_WORKFLOW_PAT` secret. This starts the existing full package updater asynchronously; release publication does not wait for Kura's result.
+Renovate runs every four hours at minute 23 UTC. `workflow_dispatch` supplies **Actions → Renovate → Run workflow** for on-demand runs. These are its only triggers; the Dependency Dashboard is disabled. Scheduled jobs are best-effort, not exact-time delivery, and GitHub can disable schedules in inactive public repositories. Both triggers require `master` and `RENOVATE_ENABLED=true`.
 
-## 1. Install the Renovate GitHub App
+`renovate.json5` owns grouping and update policy. `.github/renovate.config.cjs` loads that policy from the trusted workflow snapshot and permits only a copy-only post-upgrade command. The RTK version constraint is the version prepared in the same run: an upstream release arriving mid-run cannot be selected without its artifacts. Preparation failure stops publication, including npm updates; rerun after resolving it.
 
-1. Open <https://github.com/apps/renovate/installations/new>.
-2. Choose the account that owns `ningw42/pi-distribution`.
-3. Select **Only select repositories** and grant access to `pi-distribution`.
-4. Review the requested permissions and install the App.
+The generator, downloaded RTK executable, dependency tests, and smoke tests never receive the publication or release PAT. The publisher disables npm lifecycle scripts and plugins, does not mount the Docker socket, and mounts its trusted helper and candidate read-only. It does not execute generated source. Final PR CI tests the combined npm/RTK result on all three platforms.
 
-[`renovate.json5`](renovate.json5) is already the reviewed repository configuration. It groups all available exact, direct npm dependency updates into one PR, with no automerge. Installing the App activates that configuration; no Renovate workflow runs in GitHub Actions.
+## Prerequisites
 
-## 2. Ensure the classification labels exist
+- The repository's workflows and configuration files are present on `master`.
+- GitHub Actions is enabled for the repository.
+- You have repository administration rights and an authenticated GitHub CLI for the commands below. Browser links provide the equivalent settings pages.
 
-The automatic tagger requires these labels:
-
-- `auto-release:npm`
-- `auto-release:pi-rtk`
-
-Create them through the GitHub UI or idempotently with:
+Keep updates paused while configuring credentials and merge gates:
 
 ```bash
-gh label create auto-release:npm \
-  --repo ningw42/pi-distribution \
-  --color 0e8a16 \
-  --description "Merged npm dependency updates create a release tag" \
-  --force
-
-gh label create auto-release:pi-rtk \
-  --repo ningw42/pi-distribution \
-  --color 1d76db \
-  --description "Merged generated pi-rtk updates create a release tag" \
-  --force
+gh variable set RENOVATE_ENABLED --repo ningw42/pi-distribution --body false
 ```
 
-Renovate applies the npm label through `renovate.json5`; `update_pi_rtk.yml` applies the generated-artifact label.
-
-## 3. Configure GitHub Actions permissions
-
-Open <https://github.com/ningw42/pi-distribution/settings/actions> and configure **Workflow permissions**:
-
-1. Keep the default token permission at **Read repository contents and packages**.
-2. Enable **Allow GitHub Actions to create and approve pull requests** so `update_pi_rtk.yml` can open its update PR.
-
-Each write-capable workflow job still declares its required permissions explicitly. Jobs that execute downloaded RTK binaries or repository tests remain read-only.
-
-## 4. Create `RELEASE_PAT`
-
-The post-merge tagger cannot use `GITHUB_TOKEN`: GitHub suppresses new workflow runs caused by most events created with that token. A human-owned fine-grained token is therefore used only to push the automatic release tag.
+## 1. Configure the Renovate publication credential
 
 1. Open <https://github.com/settings/personal-access-tokens/new>.
-2. Create a fine-grained token named `pi-distribution release tagger`.
-3. Choose and record an expiration appropriate for your maintenance schedule.
-4. Restrict repository access to **Only select repositories** → `pi-distribution`.
-5. Grant repository permission **Contents: Read and write**.
-6. Leave all other writable repository permissions disabled.
-7. Generate and copy the token.
-8. Store it as the repository Actions secret `RELEASE_PAT`:
+2. Create a fine-grained token named `pi-distribution Renovate` under the intended updater account.
+3. Restrict repository access to **Only select repositories → pi-distribution**.
+4. Grant these repository permissions:
+
+   | Access | Permissions |
+   |---|---|
+   | Read and write | Contents, Pull requests, Issues, Commit statuses |
+   | Read-only | Administration, Dependabot alerts |
+   | Automatic read access | Metadata |
+
+   The configured managers do not update workflow files, so no Workflows write permission is needed. This personal repository needs no organization Members permission. See Renovate's [fine-grained PAT permissions](https://docs.renovatebot.com/modules/platform/github/#permissions).
+
+5. Set an expiration and arrange rotation. Generate and copy the token.
+6. Store it using the hidden interactive prompt; never put it in a file, command argument, PR, or chat:
 
    ```bash
-   gh secret set RELEASE_PAT --repo ningw42/pi-distribution
+   gh secret set RENOVATE_PAT --repo ningw42/pi-distribution
    ```
 
-   Paste the token at the hidden prompt. Do not place it in a file, command argument, or shell history.
+7. Set `RENOVATE_ACTOR` to the token owner's exact GitHub login, for example:
 
-Rotate the secret before the token expires. A missing or expired token stops automatic tagging but does not affect human-created tags.
+   ```bash
+   gh variable set RENOVATE_ACTOR --repo ningw42/pi-distribution --body ningw42
+   ```
 
-## 5. Protect `master` and release tags
+There is no fallback to `GITHUB_TOKEN`. PAT-created PRs start CI without GitHub's approval gate for workflow-token-created PRs. A PAT does not bypass branch rules or approve its own author's code reviews. Fully unattended merging requires no mandatory human review, while retaining mandatory CI.
 
-Open <https://github.com/ningw42/pi-distribution/settings/rules>.
+This token is separate from `RELEASE_PAT` and `KURA_WORKFLOW_PAT`. A repository-scoped PAT is not restricted to one workflow: protect workflow changes and never run untrusted generators/tests in the PAT-bearing job. PRs are authored by `RENOVATE_ACTOR`; the release tagger checks that identity, branch, label, paths, and update semantics twice.
 
-### `master` branch
+## 2. Configure repository settings and mandatory CI
 
-Create a branch ruleset targeting `master` that:
+In <https://github.com/ningw42/pi-distribution/settings>, enable:
 
-- requires changes to arrive through pull requests;
-- requires the CI `test-linux-x64`, `test-windows-x64`, and `test-windows-arm64` jobs to pass;
-- blocks force pushes;
-- blocks branch deletion.
+- **Allow squash merging**;
+- **Allow auto-merge**;
+- **Automatically delete head branches**.
 
-The status checks may not appear in the selector until the corresponding `ci.yml` jobs have run once. Add them after the first cross-platform run if necessary.
-
-### Release tags
-
-Create a tag ruleset targeting `v*.*.*` that:
-
-- blocks tag updates;
-- blocks tag deletion;
-- retains an audited administrator bypass for recovery.
-
-Do not block normal tag creation by the maintainer identity behind `RELEASE_PAT`, because both manual and automatic releases enter through tag creation.
-
-## 6. Verify the generated-artifact path
-
-Dispatch the updater after the workflows are present on `master`:
+Equivalent CLI:
 
 ```bash
-gh workflow run update_pi_rtk.yml --repo ningw42/pi-distribution
+gh repo edit ningw42/pi-distribution \
+  --enable-auto-merge --delete-branch-on-merge --enable-squash-merge
 ```
 
-Then verify:
+In <https://github.com/ningw42/pi-distribution/settings/rules>, create an **active branch ruleset** targeting `master` that:
 
-1. `update_pi_rtk.yml` succeeds.
-2. If a newer RTK release exists, it opens `auto-update/pi-rtk-<version>` with label `auto-release:pi-rtk`.
-3. The PR changes only files under `vendor/pi-rtk/`.
-4. CI passes and a human reviews and merges the PR.
-5. `tag_on_auto_update_merge.yml` creates the next `vYY.MM.N` annotated tag.
-6. `build_and_publish_release.yml` smoke-tests native Windows x64 and ARM64 packages, then publishes the corresponding GitHub Release with generated pull-request notes, both `.tgz` assets, and SHA-256 checksum files.
+- requires a pull request, with zero required approving reviews;
+- requires conversations to be resolved before merging;
+- requires `test-linux-x64`, `test-windows-x64`, and `test-windows-arm64`, each from the **GitHub Actions** integration;
+- requires the branch to be up to date before merging;
+- blocks force pushes and branch deletion;
+- has no bypass actors.
 
-A no-change updater run is also successful; it simply opens no PR.
+Auto-merge alone is not a CI gate. `scripts/check-renovate-setup.mjs` fails publication if the PAT identity, auto-merge, deletion, PR requirement, or required checks are missing. The three job names are stable outputs of `ci.yml`. Run ordinary PR CI once if needed to make them selectable in GitHub's UI.
 
-## 7. Verify Renovate
+Keep the default `GITHUB_TOKEN` permission **Read repository contents and packages** in <https://github.com/ningw42/pi-distribution/settings/actions>. Renovate jobs request no writable workflow-token permissions.
 
-After installing the App, inspect its repository in the Mend Renovate developer portal or wait for its scheduled run. Verify that its first update PR:
+Create the classification label:
 
-- uses a `renovate/npm-*` branch;
-- carries `auto-release:npm`;
-- changes only the root `package.json`/`package-lock.json` pair, the `tests/smoke-runtime` manifest/lock pair, or both pairs;
-- updates one or more direct production or smoke-runtime dependencies in the grouped PR;
-- does not enable automerge.
+```bash
+gh label create auto-release:dependencies --repo ningw42/pi-distribution \
+  --color 0e8a16 --description "Validated Renovate dependency updates create a release" --force
+```
 
-After human review and merge, the same automatic tag and release sequence should run.
+## 3. Configure release tagging
+
+Create a separate fine-grained token named `pi-distribution release tagger` at <https://github.com/settings/personal-access-tokens/new>. Restrict it to **pi-distribution**, grant **Contents: Read and write**, set an expiration, and store it privately:
+
+```bash
+gh secret set RELEASE_PAT --repo ningw42/pi-distribution
+```
+
+It is used only in the post-validation tag job. A tag pushed with `GITHUB_TOKEN` would not start the tag-only publisher. Rotate the PAT before expiry.
+
+Create an **active tag ruleset** targeting `v*.*.*` that blocks tag updates and deletion, permits new tags, and has no bypass actors. Administrators can edit the ruleset for an audited recovery operation; ordinary automation must not rewrite published tags.
+
+Each required platform CI job validates pending `renovate/dependencies` PRs using the authorizer from the trusted base revision before running package tests. This rejects malformed update PRs before auto-merge.
+
+The tagger accepts only `renovate/dependencies` PRs by `RENOVATE_ACTOR` carrying `auto-release:dependencies`. It accepts npm-only, RTK-only, or mixed updates, but rejects unrelated paths, unpaired manifest/lock changes, non-regular files, changed package metadata, and incoherent or non-advancing RTK provenance. Both authorization steps use tooling from the merged commit's first parent; the PAT-bearing step never executes the update's code. Successful validation creates the next `vYY.MM.N` annotated tag, which starts release publication.
+
+## 4. Configure the Kura update dispatch
+
+After a successful release including asset uploads, `trigger-kura-update` dispatches `ningw42/kura`'s `auto-update-packages.yml` on `master`. It starts the full package updater asynchronously; publication does not wait for Kura's result.
+
+Create a separate fine-grained token restricted to **kura**, with **Actions: Read and write**, and store it as `KURA_WORKFLOW_PAT` in **pi-distribution**:
+
+```bash
+gh secret set KURA_WORKFLOW_PAT --repo ningw42/pi-distribution
+```
+
+The built-in `GITHUB_TOKEN` cannot dispatch in Kura. There is no fallback. `KURA_WORKFLOW_PAT` is separate from Kura's own `AUTO_UPDATE_PAT`, which publishes Kura update PRs. Rotate before expiry. A missing/expired credential fails dispatch after the release is published; fix it and rerun the failed job.
+
+Kura may update other packages too, and a no-change run opens no PR. Its twice-daily schedule remains a fallback.
+
+## 5. Enable and verify
+
+After configuring all three secrets, the actor variable, and the repository rules:
+
+```bash
+gh variable set RENOVATE_ENABLED --repo ningw42/pi-distribution --body true
+gh workflow run renovate.yml --repo ningw42/pi-distribution --ref master
+```
+
+Verify:
+
+1. RTK preparation and Renovate publication succeed; a no-change run opens no PR.
+2. An available update creates `renovate/dependencies` with label `auto-release:dependencies` and requests auto-merge. All update types, including majors, share this policy.
+3. The PR changes only the root manifest/lock pair, smoke-runtime manifest/lock pair, and/or the three `vendor/pi-rtk/` files.
+4. All three required platform checks run automatically. A failed check leaves the PR open. When the branch is current and all requirements pass, GitHub squash-merges it and deletes the source branch.
+5. `tag_on_auto_update_merge.yml` validates the update and creates a release tag.
+6. `build_and_publish_release.yml` validates Ubuntu and native Windows x64/ARM64 artifacts, then publishes generated release notes, both `.tgz` assets, and SHA-256 checksums.
+7. A successful release is followed by an **Auto-update packages** run in Kura.
+
+## Routine operation
+
+- **Run now:** use **Actions → Renovate → Run workflow**, selecting `master`, or use the dispatch command above.
+- **Pause/resume:** set `RENOVATE_ENABLED` to `false`/`true`. Pausing prevents new updater runs; cancel an already-running job or disable auto-merge on an open PR separately if needed. It does not undo merged changes or published releases.
+- **Rotate credentials:** replace the corresponding repository secret before expiry and verify its next use. Never substitute one PAT for another.
+- **Update Renovate:** its CLI and action versions are pinned in `renovate.yml`. Change those pins in a reviewed PR and run the full verification gate. The configured managers deliberately do not mutate workflow files.
 
 ## Manual releases
 
-A maintainer can release any intentionally selected commit without an update PR:
+A maintainer can release any intentionally selected commit:
 
 ```bash
 git tag -a v26.08.0 <commit> -m "pi-distribution v26.08.0"
 git push origin v26.08.0
 ```
 
-The tag enters the same `build_and_publish_release.yml` publisher as an automatic tag. The tag must match `vYY.MM.N`, and the tagged package must pass the release workflow's Ubuntu validation plus native Windows x64 and ARM64 packed-artifact smoke tests.
-
-## Kura update dispatch credential
-
-The built-in `GITHUB_TOKEN` is scoped to `pi-distribution` and cannot dispatch a workflow in Kura. Before releasing with the dispatch job enabled:
-
-1. Create a fine-grained personal access token restricted to **Only select repositories** → `kura`.
-2. Grant repository permission **Actions: Read and write**; leave all other writable repository permissions disabled.
-3. Store it as the Actions secret `KURA_WORKFLOW_PAT` in **`ningw42/pi-distribution`**, not Kura.
-4. Rotate the secret before its token expires.
-
-The token is used only by the dispatch step. It is separate from Kura's existing `AUTO_UPDATE_PAT`, which publishes update branches and PRs. There is no fallback to `GITHUB_TOKEN`. A missing or expired `KURA_WORKFLOW_PAT` fails the dispatch job after the release has already been published; fix the credential and rerun the failed job to retry.
-
-To verify the integration, confirm that a successful release is followed by an **Auto-update packages** run on Kura's `master` branch. Kura may also update other packages, and a no-change run opens no PR.
-
-## Kura bootstrap
-
-Kura remains an unreleased flake. After the first `pi-distribution` GitHub Release exists, update `../kura/pkgs/pi-distribution/default.nix` to use:
-
-- `version = "YY.MM.N"`;
-- `rev = "v${finalAttrs.version}"`;
-- `nix-update-script` with `--use-github-releases`;
-- the GitHub Release URL as `meta.changelog`.
-
-Recompute the source and npm dependency hashes for that first release. Subsequent successful releases dispatch Kura's existing package updater immediately; its twice-daily schedule remains a fallback.
+The tag must match `vYY.MM.N`. It enters the same publisher and must pass Ubuntu validation and native Windows x64/ARM64 packed-artifact smoke tests.
 
 ## Troubleshooting
 
-### Merged updater PR produced no tag
-
-Check that:
-
-- the PR was merged into `master`;
-- its author, branch prefix, label, and changed paths match the expected update class;
-- `RELEASE_PAT` exists and is not expired;
-- the token still has Contents read/write access;
-- the release-tag ruleset permits tag creation by the token owner.
-
-### Automatic tag produced no release workflow run
-
-The tag was probably pushed with `GITHUB_TOKEN` or an unusable `RELEASE_PAT`. Inspect `tag_on_auto_update_merge.yml`, rotate the secret if needed, and retry the failed tag job. Do not introduce a second commit- or PR-triggered publication path.
-
-### Renovate opens no PRs
-
-Check that:
-
-- the Renovate App installation includes `pi-distribution`;
-- the repository is active in the Mend Renovate developer portal;
-- `renovate.json5` validates;
-- no open dependency PR is consuming the configured one-PR limit.
+- **Renovate is skipped:** confirm the workflow is on `master` and `RENOVATE_ENABLED=true`.
+- **Publication preflight fails:** check `RENOVATE_PAT`, its expiry/permissions, `RENOVATE_ACTOR`, auto-merge/deletion settings, and the active required-check ruleset. Never bypass checks to unblock an update.
+- **RTK preparation fails:** inspect release download/checksum, upstream source comparison, and package/smoke validation logs. Publication stops rather than shipping an incomplete candidate.
+- **PR CI needs manual workflow approval:** check that the PR was created with the dedicated PAT rather than `GITHUB_TOKEN`.
+- **PR does not merge:** inspect failing/missing required checks, branch freshness, merge conflicts, unresolved conversations, requested human reviews, or disabled auto-merge. Renovate rebases on its next run; use manual dispatch to request one now.
+- **Merged update produced no tag:** inspect both authorizations, the PR identity/branch/label, allowed file changes, and `RELEASE_PAT`.
+- **Tag produced no release run:** confirm the tag was pushed with the valid `RELEASE_PAT`, not `GITHUB_TOKEN`. Publication is triggered only by tag pushes.
