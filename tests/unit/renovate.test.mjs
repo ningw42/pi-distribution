@@ -183,6 +183,19 @@ test("required Linux gate covers every same-repo Renovate branch and rejects une
   assert.match(gate, /node .*validate-auto-update\.mjs" --pending/);
 });
 
+test("PR file pagination pipes slurped pages to external jq in CI and both tag gates", () => {
+  for (const [file, count] of [["ci.yml", 1], ["tag_on_auto_update_merge.yml", 2]]) {
+    const source = readFileSync(new URL(`../../.github/workflows/${file}`, import.meta.url), "utf8");
+    const commands = source.match(/gh api --paginate --slurp[^\n]*\\\n[^\n]*/g) ?? [];
+    assert.equal(commands.length, count, `cover every paginated file read in ${file}`);
+    for (const command of commands) {
+      const [request, filter] = command.replace(/\\\n\s*/g, " ").split("|");
+      assert.doesNotMatch(request, /--jq\b|--template\b/, "gh rejects built-in filters with --slurp");
+      assert.match(filter ?? "", /^\s*jq 'add' > "\$RUNNER_TEMP\/files\.json"$/);
+    }
+  }
+});
+
 test("RTK preparation verifies first, validates only changed candidates, and always uploads", () => {
   const verify = workflowStep(workflow, "Verify candidate data");
   const validate = workflowStep(workflow, "Validate generated package");
