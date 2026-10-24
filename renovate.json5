@@ -6,6 +6,9 @@
   "branchTopic": "dependencies",
   "rangeStrategy": "pin",
   "dependencyDashboard": false,
+  "vulnerabilityAlerts": {
+    "enabled": false
+  },
   "automerge": true,
   "automergeType": "pr",
   "automergeStrategy": "squash",

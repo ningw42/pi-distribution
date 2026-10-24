@@ -55,10 +55,9 @@ jobs:
           RTK_GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/update-pi-rtk.mjs
 
-      - name: Validate generated package
-        uses: ./.github/actions/validate-package
-
       - name: Verify candidate data
+        id: candidate
+        shell: bash
         env:
           RTK_CANDIDATE_DIR: vendor/pi-rtk
           RTK_BASE_DIR: ${{ runner.temp }}/rtk-base/vendor/pi-rtk
@@ -68,7 +67,19 @@ jobs:
           git archive "$BASE_SHA" vendor/pi-rtk | tar -x -C "$RUNNER_TEMP/rtk-base"
           node scripts/rtk-candidate.mjs --check
           git diff --check
+          if git diff --quiet "$BASE_SHA" -- vendor/pi-rtk; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            status=$?
+            [[ "$status" -eq 1 ]] || exit "$status"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
 
+      - name: Validate generated package
+        if: steps.candidate.outputs.changed == 'true'
+        uses: ./.github/actions/validate-package
+
+      # Unchanged, verified candidates are still needed for npm-only runs.
       - name: Upload candidate from this run
         uses: actions/upload-artifact@v7.0.1
         with:
