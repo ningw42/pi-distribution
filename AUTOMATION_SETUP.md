@@ -31,7 +31,7 @@ renovate.yml: schedule / manual dispatch (master only)
                                   +-- KURA_WORKFLOW_PAT dispatches Kura updater
 ```
 
-Renovate runs every four hours at minute 23 UTC. `workflow_dispatch` supplies **Actions → Renovate → Run workflow** for on-demand runs. These are its only triggers; the Dependency Dashboard is disabled. Scheduled jobs are best-effort, not exact-time delivery, and GitHub can disable schedules in inactive public repositories. Both triggers require `master` and `RENOVATE_ENABLED=true`.
+Renovate runs every four hours at 00:00, 04:00, 08:00, 12:00, 16:00, and 20:00 UTC. `workflow_dispatch` supplies **Actions → Renovate → Run workflow** for on-demand runs. These are its only triggers; the Dependency Dashboard is disabled. Scheduled jobs are best-effort, not exact-time delivery, and GitHub can disable schedules in inactive public repositories. Both triggers require `master` and `RENOVATE_ENABLED=true`.
 
 `renovate.json5` owns grouping and update policy. `.github/renovate.config.cjs` loads that policy from the trusted workflow snapshot and permits only a copy-only post-upgrade command. The RTK version constraint is the version prepared in the same run: an upstream release arriving mid-run cannot be selected without its artifacts. Candidate integrity and its comparison with the base snapshot are always verified first. A byte-identical candidate skips dependency installation and package/runtime/smoke validation; a changed candidate must pass that full suite. The artifact is uploaded in either case. Invalid candidates or failed validation stop publication, including npm updates; rerun after resolving the failure.
 

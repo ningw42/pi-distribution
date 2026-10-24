@@ -296,6 +296,7 @@ test("workflow is scheduled/manual-only and separates RTK execution from the PAT
   const triggers = workflow.slice(workflow.indexOf("on:"), workflow.indexOf("permissions:"));
   assert.match(triggers, /workflow_dispatch:/);
   assert.match(triggers, /schedule:/);
+  assert.match(triggers, /^    - cron: "0 \*\/4 \* \* \*"$/m);
   assert.doesNotMatch(triggers, /push:|pull_request:|issues:|issue_comment:|workflow_run:/);
   const prepare = workflow.slice(workflow.indexOf("  prepare:"), workflow.indexOf("  renovate:"));
   const publisher = workflow.slice(workflow.indexOf("  renovate:"));
