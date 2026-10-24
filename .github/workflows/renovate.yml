@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   prepare:
-    # Enable only after PAT/ruleset setup and removal of Mend's repository access.
+    # Enable only after the credentials and repository merge gates are configured.
     if: github.ref == 'refs/heads/master' && vars.RENOVATE_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
