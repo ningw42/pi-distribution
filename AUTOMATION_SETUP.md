@@ -12,7 +12,7 @@ update_pi_rtk.yml -> generated pi-rtk update PR ------┘                       
 Human pushes a vYY.MM.N tag ---------------------------------------------------------------┘
 ```
 
-The publisher reacts only to tag pushes. When it creates a release, it asks GitHub to generate the description from merged pull requests since the previous release. Automatic tag pushes must use a non-`GITHUB_TOKEN` credential so GitHub starts the downstream release workflow.
+The publisher reacts only to tag pushes. When it creates a release, it asks GitHub to generate the description from merged pull requests since the previous release. Automatic tag pushes must use a non-`GITHUB_TOKEN` credential so GitHub starts the downstream release workflow. After the release job succeeds, including asset uploads, `trigger-kura-update` dispatches `ningw42/kura`'s `auto-update-packages.yml` on `master` using the separate `KURA_WORKFLOW_PAT` secret. This starts the existing full package updater asynchronously; release publication does not wait for Kura's result.
 
 ## 1. Install the Renovate GitHub App
 
@@ -145,6 +145,19 @@ git push origin v26.08.0
 
 The tag enters the same `build_and_publish_release.yml` publisher as an automatic tag. The tag must match `vYY.MM.N`, and the tagged package must pass the release workflow's Ubuntu validation plus native Windows x64 and ARM64 packed-artifact smoke tests.
 
+## Kura update dispatch credential
+
+The built-in `GITHUB_TOKEN` is scoped to `pi-distribution` and cannot dispatch a workflow in Kura. Before releasing with the dispatch job enabled:
+
+1. Create a fine-grained personal access token restricted to **Only select repositories** → `kura`.
+2. Grant repository permission **Actions: Read and write**; leave all other writable repository permissions disabled.
+3. Store it as the Actions secret `KURA_WORKFLOW_PAT` in **`ningw42/pi-distribution`**, not Kura.
+4. Rotate the secret before its token expires.
+
+The token is used only by the dispatch step. It is separate from Kura's existing `AUTO_UPDATE_PAT`, which publishes update branches and PRs. There is no fallback to `GITHUB_TOKEN`. A missing or expired `KURA_WORKFLOW_PAT` fails the dispatch job after the release has already been published; fix the credential and rerun the failed job to retry.
+
+To verify the integration, confirm that a successful release is followed by an **Auto-update packages** run on Kura's `master` branch. Kura may also update other packages, and a no-change run opens no PR.
+
 ## Kura bootstrap
 
 Kura remains an unreleased flake. After the first `pi-distribution` GitHub Release exists, update `../kura/pkgs/pi-distribution/default.nix` to use:
@@ -154,7 +167,7 @@ Kura remains an unreleased flake. After the first `pi-distribution` GitHub Relea
 - `nix-update-script` with `--use-github-releases`;
 - the GitHub Release URL as `meta.changelog`.
 
-Recompute the source and npm dependency hashes for that first release. Kura's existing scheduled updater can handle subsequent releases.
+Recompute the source and npm dependency hashes for that first release. Subsequent successful releases dispatch Kura's existing package updater immediately; its twice-daily schedule remains a fallback.
 
 ## Troubleshooting
 

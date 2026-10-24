@@ -186,3 +186,16 @@ jobs:
             dist/pi-distribution-"$TAG"-windows-arm64.tgz.sha256 \
             --clobber \
             --repo "$REPOSITORY"
+
+  trigger-kura-update:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Trigger Kura package updates
+        env:
+          GH_TOKEN: ${{ secrets.KURA_WORKFLOW_PAT }}
+        run: |
+          gh workflow run auto-update-packages.yml \
+            --repo ningw42/kura \
+            --ref master
