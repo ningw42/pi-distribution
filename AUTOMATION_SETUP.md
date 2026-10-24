@@ -50,7 +50,7 @@ The old `update_pi_rtk.yml` is removed by this migration. The new configuration 
 1. Open <https://github.com/settings/personal-access-tokens/new>.
 2. Create a fine-grained token named `pi-distribution Renovate` under the intended updater account.
 3. Restrict repository access to **Only select repositories → pi-distribution**.
-4. Grant **Contents**, **Pull requests**, **Issues**, and **Commit statuses**: **Read and write**. Grant **Administration**, **Checks**, and **Dependabot alerts**: **Read-only**, for branch-rule/check inspection and vulnerability information. Metadata read access is automatic. This personal repository needs no organization Members permission. The configured managers do not update workflow files, so no Workflows write permission is needed.
+4. Grant **Contents**, **Pull requests**, **Issues**, and **Commit statuses**: **Read and write**. Grant **Administration** and **Dependabot alerts**: **Read-only**, for branch-rule inspection and vulnerability information. Do not look for **Checks**: it is listed for GitHub App authentication, not in Renovate's [fine-grained PAT permissions](https://docs.renovatebot.com/modules/platform/github/#permissions). Metadata read access is automatic. This personal repository needs no organization Members permission. The configured managers do not update workflow files, so no Workflows write permission is needed.
 5. Set an expiration and arrange rotation. Generate and copy the token.
 6. Store it using the hidden interactive prompt; never put it in a file, command argument, PR, or chat:
 
