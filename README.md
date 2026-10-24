@@ -216,7 +216,14 @@ Set `KEEP_SMOKE_TMP=1` to retain its temporary package and logs for inspection. 
 
 ## Repository automation
 
-See [`AUTOMATION_SETUP.md`](AUTOMATION_SETUP.md) for the required GitHub App, credential, repository-rule, and first-run setup.
+GitHub Actions owns Renovate's scheduled and manual runs; no Mend App or
+Dependency Dashboard is used. Exact npm and generated RTK updates share one PR,
+which GitHub squash-merges after the required Linux x64, Windows x64, and Windows
+ARM64 checks pass, then deletes the source branch. RTK generation and tests run
+without the publication PAT.
+
+See [`AUTOMATION_SETUP.md`](AUTOMATION_SETUP.md) for the dedicated PAT, required
+merge gates, manual cutover steps, and the **Run workflow** trigger.
 
 ## Updating
 
@@ -239,7 +246,9 @@ npm --prefix tests/smoke-runtime install --save-dev --save-exact --include=dev -
 npm run test:all
 ```
 
-Renovate groups production and smoke-runtime dependency updates into one reviewed PR.
+Renovate groups production, smoke-runtime, and generated RTK updates into one
+CI-gated, automatically merged PR. This includes major updates; failed checks
+leave the PR open for investigation.
 
 ### RTK
 

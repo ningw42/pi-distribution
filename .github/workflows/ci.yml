@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -35,6 +36,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # This is part of each existing required platform check, not merely a
+      # post-merge release check. Load the gate from the trusted base revision.
+      - name: Validate automatic update before allowing merge
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'renovate/dependencies'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RENOVATE_ACTOR: ${{ vars.RENOVATE_ACTOR }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
+          comparison_base="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
+          mkdir -p "$RUNNER_TEMP/trusted"
+          git archive "$BASE_SHA" \
+            scripts/validate-auto-update.mjs scripts/validate-npm-update.mjs scripts/rtk-candidate.mjs \
+            | tar -x -C "$RUNNER_TEMP/trusted"
+          gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" > "$RUNNER_TEMP/pr.json"
+          gh api --paginate --slurp "repos/$REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" \
+            --jq 'add' > "$RUNNER_TEMP/files.json"
+          node "$RUNNER_TEMP/trusted/scripts/validate-auto-update.mjs" --pending \
+            "$RUNNER_TEMP/pr.json" "$RUNNER_TEMP/files.json" "$comparison_base" "$HEAD_SHA"
 
       - name: Validate package
         uses: ./.github/actions/validate-package
