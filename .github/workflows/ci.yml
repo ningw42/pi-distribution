@@ -40,10 +40,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # This is part of each existing required platform check, not merely a
-      # post-merge release check. Load the gate from the trusted base revision.
+      # The required Linux check owns authorization for every same-repo
+      # renovate/* PR; the trusted validator rejects unexpected branches.
+      # Windows jobs still run the full package/runtime/smoke suite.
       - name: Validate automatic update before allowing merge
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'renovate/dependencies'
+        if: >-
+          matrix.os == 'linux' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          startsWith(github.event.pull_request.head.ref, 'renovate/')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

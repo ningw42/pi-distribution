@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, symlinkSync } from "node:fs";
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, symlinkSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -7,10 +8,22 @@ import { runInNewContext } from "node:vm";
 import test from "node:test";
 import { applyRtkCandidate, compareRtkVersions, readRtkCandidate, validatePreparedCandidate } from "../../scripts/rtk-candidate.mjs";
 import { requiredChecks, validateRenovateSetup } from "../../scripts/check-renovate-setup.mjs";
+import { authorizePendingUpdate } from "../../scripts/validate-auto-update.mjs";
 
 const policy = JSON.parse(readFileSync(new URL("../../renovate.json5", import.meta.url)));
 const workflow = readFileSync(new URL("../../.github/workflows/renovate.yml", import.meta.url), "utf8");
 const original = Object.fromEntries(["LICENSE", "index.ts", "metadata.json"].map((name) => [name, readFileSync(new URL(`../../vendor/pi-rtk/${name}`, import.meta.url))]));
+
+function workflowStep(text, name) {
+  const body = text.split(`      - name: ${name}\n`)[1];
+  assert.ok(body, `missing workflow step: ${name}`);
+  return body.split(/\n(?:      - name:|  [a-z][a-z-]*:)/)[0];
+}
+
+function stepCondition(step) {
+  const folded = step.match(/^        if: >-\n((?:          .*\n)+)/m);
+  return folded ? folded[1].trim().replace(/\s*\n\s*/g, " ") : step.match(/^        if: (.+)$/m)?.[1];
+}
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), "rtk-candidate-test-"));
@@ -136,9 +149,101 @@ test("publication preflight requires identity, auto-merge, deletion, and each CI
   assert.throws(() => validateRenovateSetup(reviewed.user, reviewed.repository, reviewed.rules, "fixture-owner"), /human reviews/);
 });
 
+test("required Linux gate covers every same-repo Renovate branch and rejects unexpected branches", () => {
+  const ci = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
+  const gate = workflowStep(ci, "Validate automatic update before allowing merge");
+  const condition = stepCondition(gate);
+  assert.ok(condition);
+  const repository = "owner/repo", actor = "updater", headSha = "a".repeat(40);
+  const shouldRun = (ref, { os = "linux", headRepository = repository, event = "pull_request" } = {}) => runInNewContext(condition, {
+    matrix: { os },
+    github: { event_name: event, repository, event: { pull_request: { head: { ref, repo: { full_name: headRepository } } } } },
+    startsWith: (value, prefix) => value.toLowerCase().startsWith(prefix.toLowerCase()),
+  });
+  const files = ["package.json", "package-lock.json"].map((filename) => ({ filename, status: "modified" }));
+  for (const ref of ["renovate/dependencies", "renovate/npm-example-vulnerability", "renovate/unexpected"]) {
+    assert.equal(shouldRun(ref), true, `${ref} must not skip required authorization`);
+    const pr = {
+      merged: false, base: { ref: "master", repo: { full_name: repository } },
+      head: { ref, sha: headSha, repo: { full_name: repository } },
+      user: { login: actor }, labels: [{ name: "auto-release:dependencies" }], changed_files: files.length,
+    };
+    if (ref === "renovate/dependencies") {
+      assert.equal(authorizePendingUpdate(pr, files, { repository, actor, headSha }).updateClass, "npm");
+    } else {
+      assert.throws(() => authorizePendingUpdate(pr, files, { repository, actor, headSha }), /exact grouped Renovate branch/);
+    }
+  }
+  assert.equal(shouldRun("renovate/dependencies", { os: "windows" }), false);
+  assert.equal(shouldRun("renovate/dependencies", { headRepository: "fork/repo" }), false);
+  assert.equal(shouldRun("renovate/dependencies", { event: "push" }), false);
+  assert.equal(shouldRun("feature/change"), false);
+  assert.equal(shouldRun("renovate-other/change"), false);
+  assert.ok(requiredChecks.includes("test-linux-x64"));
+  assert.match(gate, /node .*validate-auto-update\.mjs" --pending/);
+});
+
+test("RTK preparation verifies first, validates only changed candidates, and always uploads", () => {
+  const verify = workflowStep(workflow, "Verify candidate data");
+  const validate = workflowStep(workflow, "Validate generated package");
+  const upload = workflowStep(workflow, "Upload candidate from this run");
+  assert.match(verify, /id: candidate/);
+  assert.ok(workflow.indexOf("name: Verify candidate data") < workflow.indexOf("name: Validate generated package"));
+  assert.ok(workflow.indexOf("name: Validate generated package") < workflow.indexOf("name: Upload candidate from this run"));
+  assert.equal(stepCondition(validate), "steps.candidate.outputs.changed == 'true'");
+  assert.equal(stepCondition(upload), undefined, "unchanged candidates must still be uploaded");
+});
+
+test("Linux preparation script reports unchanged/changed and fails before output on invalid candidates", { skip: process.platform !== "linux" }, (t) => {
+  const { root, repo, target } = fixture(t);
+  mkdirSync(join(repo, "scripts"));
+  copyFileSync(new URL("../../scripts/rtk-candidate.mjs", import.meta.url), join(repo, "scripts/rtk-candidate.mjs"));
+  const git = (...args) => execFileSync("git", args, { cwd: repo, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  git("init", "--quiet");
+  git("config", "user.name", "Preparation test");
+  git("config", "user.email", "preparation@example.invalid");
+  git("config", "core.autocrlf", "false");
+  git("config", "commit.gpgsign", "false");
+  git("config", "core.hooksPath", join(root, "no-hooks"));
+  git("add", "--all");
+  git("commit", "--quiet", "-m", "test: preparation baseline");
+  const base = git("rev-parse", "HEAD");
+  const runnerTemp = join(root, "runner temp"), output = join(root, "step-output");
+  mkdirSync(runnerTemp);
+  const script = workflowStep(workflow, "Verify candidate data").split("        run: |\n")[1]
+    .split("\n").map((line) => line.replace(/^          /, "")).join("\n");
+  const run = () => {
+    writeFileSync(output, "");
+    return spawnSync("bash", ["-e", "-o", "pipefail", "-c", script], {
+      cwd: repo, encoding: "utf8",
+      env: { ...process.env, BASE_SHA: base, RTK_CANDIDATE_DIR: target, RTK_BASE_DIR: join(runnerTemp, "rtk-base/vendor/pi-rtk"), RUNNER_TEMP: runnerTemp, GITHUB_OUTPUT: output },
+    });
+  };
+  let result = run();
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(output, "utf8"), "changed=false\n");
+  metadataAt(target, (metadata) => { metadata.version = "99.0.0"; metadata.tag = "v99.0.0"; });
+  result = run();
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(output, "utf8"), "changed=true\n");
+  writeFileSync(join(target, "index.ts"), "corrupt source");
+  result = run();
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /source hash mismatch/);
+  assert.equal(readFileSync(output, "utf8"), "");
+  writeFileSync(join(target, "index.ts"), original["index.ts"]);
+  writeFileSync(join(target, "metadata.json"), original["metadata.json"]);
+  metadataAt(target, (metadata) => { metadata.commit = "a".repeat(40); });
+  result = run();
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /same-version/);
+  assert.equal(readFileSync(output, "utf8"), "");
+});
+
 test("Renovate policy groups npm and RTK, disables dashboard, and gates auto-merge", () => {
   assert.deepEqual(policy.enabledManagers, ["npm", "custom.regex"]);
   assert.equal(policy.dependencyDashboard, false);
+  assert.equal(policy.vulnerabilityAlerts?.enabled, false);
   assert.equal(policy.automerge, true);
   assert.equal(policy.automergeType, "pr");
   assert.equal(policy.platformAutomerge, true);
@@ -165,6 +270,7 @@ test("global config only permits copying the prepared version with fixed tooling
   assert.equal(config.customEnvVariables.RTK_CANDIDATE_DIR, "/opt/rtk-candidate");
   assert.equal(config.exposeAllEnv, undefined);
   assert.equal(config.requireConfig, "ignored");
+  assert.equal(config.vulnerabilityAlerts?.enabled, false);
   const rule = config.packageRules.at(-1);
   assert.equal(rule.allowedVersions, "1.2.3");
   assert.equal(rule.postUpgradeTasks.executionMode, "update");

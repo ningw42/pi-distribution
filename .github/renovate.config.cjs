@@ -3,8 +3,8 @@ const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 
 // These files are mounted read-only from this workflow run, not loaded from
-// Renovate's mutable repository checkout. The candidate was generated/tested
-// in a separate job without access to the publication PAT.
+// Renovate's mutable repository checkout. The candidate was verified in a
+// separate job without the PAT; changed candidates also passed package tests.
 const candidate = JSON.parse(readFileSync(join(process.env.RTK_CANDIDATE_DIR, "metadata.json"), "utf8"));
 assert.match(candidate.version, /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
 const policy = JSON.parse(readFileSync("/opt/renovate-tools/renovate.json5", "utf8"));
