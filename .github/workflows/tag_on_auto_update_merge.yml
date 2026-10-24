@@ -49,7 +49,7 @@ jobs:
             | tar -x -C "$RUNNER_TEMP/trusted"
           gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" > "$RUNNER_TEMP/pr.json"
           gh api --paginate --slurp "repos/$REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" \
-            --jq 'add' > "$RUNNER_TEMP/files.json"
+            | jq 'add' > "$RUNNER_TEMP/files.json"
           update_class="$(node "$RUNNER_TEMP/trusted/scripts/validate-auto-update.mjs" \
             "$RUNNER_TEMP/pr.json" "$RUNNER_TEMP/files.json" "$base_sha" "$MERGE_SHA")"
           echo "update-class=$update_class" >> "$GITHUB_OUTPUT"
@@ -89,7 +89,7 @@ jobs:
           [[ "$(git rev-parse "$MERGE_SHA^")" == "$BASE_SHA" ]]
           gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" > "$RUNNER_TEMP/pr.json"
           gh api --paginate --slurp "repos/$REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" \
-            --jq 'add' > "$RUNNER_TEMP/files.json"
+            | jq 'add' > "$RUNNER_TEMP/files.json"
           actual="$(node scripts/validate-auto-update.mjs \
             "$RUNNER_TEMP/pr.json" "$RUNNER_TEMP/files.json" "$BASE_SHA" "$MERGE_SHA")"
           [[ "$actual" == "$UPDATE_CLASS" ]]
