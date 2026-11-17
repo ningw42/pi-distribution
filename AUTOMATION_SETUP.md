@@ -1,6 +1,6 @@
 # Automation setup
 
-This guide configures the repository's automation from scratch. Renovate runs in GitHub Actions on standard GitHub-hosted Linux runners. Exact npm and generated `pi-rtk` updates share one PR; required cross-platform CI gates automatic squash merging, and GitHub deletes the merged source branch.
+This guide configures the repository's automation from scratch. Renovate runs in GitHub Actions on standard GitHub-hosted Linux runners. Exact npm, pinned `pi-history` GitHub release, and generated `pi-rtk` updates share one PR; required cross-platform CI gates automatic squash merging, and GitHub deletes the merged source branch.
 
 ## Event flow and credential boundaries
 
@@ -16,7 +16,7 @@ renovate.yml: schedule / manual dispatch (master only)
   |
   +-- renovate: dedicated RENOVATE_PAT
         verify PAT identity and repository merge gates
-        scan npm dependencies + RTK GitHub releases
+        scan npm dependencies + pi-history/RTK GitHub releases
         copy the verified RTK candidate when RTK changes
         create/update renovate/dependencies + request auto-merge
           |
@@ -34,6 +34,15 @@ renovate.yml: schedule / manual dispatch (master only)
 Renovate runs every four hours at 00:00, 04:00, 08:00, 12:00, 16:00, and 20:00 UTC. `workflow_dispatch` supplies **Actions → Renovate → Run workflow** for on-demand runs. These are its only triggers; the Dependency Dashboard is disabled. Scheduled jobs are best-effort, not exact-time delivery, and GitHub can disable schedules in inactive public repositories. Both triggers require `master` and `RENOVATE_ENABLED=true`.
 
 `renovate.json5` owns grouping and update policy. `.github/renovate.config.cjs` loads that policy from the trusted workflow snapshot and permits only a copy-only post-upgrade command. The RTK version constraint is the version prepared in the same run: an upstream release arriving mid-run cannot be selected without its artifacts. Candidate integrity and its comparison with the base snapshot are always verified first. A byte-identical candidate skips dependency installation and package/runtime/smoke validation; a changed candidate must pass that full suite. The artifact is uploaded in either case. Invalid candidates or failed validation stop publication, including npm updates; rerun after resolving the failure.
+
+`pi-history` is a Git dependency pinned to a stable `vX.Y.Z` tag of
+`ningw42/pi-history`, with its resolved commit in the npm lockfile. The npm
+manager updates both files; a package rule switches its lookup from GitHub tags
+to GitHub releases, so an unreleased tag is not selected. The unrelated npm
+package named `pi-history` is never used. The trusted dependency validator
+allows only this exact repository and release-tag syntax for `pi-history`, not
+branches, ranges, arbitrary Git sources, or a switch to the npm namesake. No
+additional post-upgrade command or credential is needed.
 
 Renovate vulnerability-alert PRs are explicitly disabled so they cannot bypass the validated group with separate branches or lockfile-only remediation. Regular version updates can still contain security fixes. This policy does not change GitHub's own alert settings, and the publication PAT does not need Dependabot alerts access.
 
@@ -132,7 +141,7 @@ Create an **active tag ruleset** targeting `v*.*.*` that blocks tag updates and 
 
 The required `test-linux-x64` CI job runs the trusted base-revision authorizer for every same-repository PR whose branch starts with `renovate/`. The authorizer accepts only valid `renovate/dependencies` updates and rejects every unexpected branch, identity, path, or semantic change before auto-merge. Windows x64 and ARM64 remain required and run the full package/runtime/smoke suite without duplicating the Linux authorization shell step.
 
-The tagger accepts only `renovate/dependencies` PRs by `RENOVATE_ACTOR` carrying `auto-release:dependencies`. It accepts npm-only, RTK-only, or mixed updates, but rejects unrelated paths, unpaired manifest/lock changes, non-regular files, changed package metadata, and incoherent or non-advancing RTK provenance. Both authorization steps use tooling from the merged commit's first parent; the PAT-bearing step never executes the update's code. Successful validation creates the next `vYY.MM.N` annotated tag, which starts release publication.
+The tagger accepts only `renovate/dependencies` PRs by `RENOVATE_ACTOR` carrying `auto-release:dependencies`. It accepts npm-managed updates (including `pi-history`), RTK-only, or mixed updates, but rejects unrelated paths, unpaired manifest/lock changes, non-regular files, changed package metadata, and incoherent or non-advancing RTK provenance. Both authorization steps use tooling from the merged commit's first parent; the PAT-bearing step never executes the update's code. Successful validation creates the next `vYY.MM.N` annotated tag, which starts release publication.
 
 ## 4. Configure the Kura update dispatch
 

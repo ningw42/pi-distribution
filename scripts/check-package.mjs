@@ -4,6 +4,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { pinnedDependencyVersion } from "./validate-npm-update.mjs";
+
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const readText = (path) => readFileSync(join(root, path), "utf8");
 const readJson = (path) => JSON.parse(readText(path));
@@ -29,7 +31,7 @@ const expectedExtensions = [
   "./extensions/pi-cc-extensions/index.ts",
   "./extensions/pi-dynamic-workflows/index.ts",
   "./extensions/pi-inline-skills/index.ts",
-  "./extensions/pi-input-history/index.ts",
+  "./extensions/pi-history/index.ts",
   "./extensions/pi-loop/index.ts",
   "./extensions/pi-theme-picker/index.ts",
   "./extensions/pi-subagents/index.ts",
@@ -62,7 +64,7 @@ const expectedDependencyNames = [
   "@tintinweb/pi-subagents",
   "@tintinweb/pi-tasks",
   "pi-cc-extensions",
-  "pi-input-history",
+  "pi-history",
   "pi-theme-picker",
 ];
 const smokePiName = "@earendil-works/pi-coding-agent";
@@ -85,7 +87,8 @@ const shimTargets = {
     "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts",
   "extensions/pi-inline-skills/index.ts":
     "node_modules/@tifan/pi-inline-skills/src/index.ts",
-  "extensions/pi-input-history/index.ts": "node_modules/pi-input-history/index.ts",
+  "extensions/pi-history/index.ts": "node_modules/pi-history/src/index.ts",
+  "extensions/pi-input-history/index.ts": "node_modules/pi-history/src/index.ts",
   "extensions/pi-loop/index.ts":
     "node_modules/@pwguler/pi-loop/extensions/index.ts",
   "extensions/pi-theme-picker/index.ts": "node_modules/pi-theme-picker/index.ts",
@@ -101,7 +104,7 @@ const dependencyTargets = {
     "@quintinshaw/pi-dynamic-workflows",
   "node_modules/@thinkscape/pi-status/src/index.ts": "@thinkscape/pi-status",
   "node_modules/@tifan/pi-inline-skills/src/index.ts": "@tifan/pi-inline-skills",
-  "node_modules/pi-input-history/index.ts": "pi-input-history",
+  "node_modules/pi-history/src/index.ts": "pi-history",
   "node_modules/@pwguler/pi-loop/extensions/index.ts": "@pwguler/pi-loop",
   "node_modules/pi-theme-picker/index.ts": "pi-theme-picker",
   "node_modules/@tintinweb/pi-subagents/src/index.ts": "@tintinweb/pi-subagents",
@@ -159,7 +162,7 @@ assert.deepEqual(
 
 assert.deepEqual(sorted(Object.keys(pkg.dependencies)), sorted(expectedDependencyNames));
 for (const [name, version] of Object.entries(pkg.dependencies)) {
-  assert.match(version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, `${name} must use an exact version`);
+  pinnedDependencyVersion(name, version);
 }
 assert.deepEqual(sorted(pkg.bundleDependencies), sorted(expectedDependencyNames));
 assert.deepEqual(
@@ -188,7 +191,7 @@ for (const dependency of [
   "@sherif-fanous/pi-catppuccin",
   "@thinkscape/pi-status",
   "@tifan/pi-inline-skills",
-  "pi-input-history",
+  "pi-history",
   "pi-theme-picker",
 ]) {
   assert.equal(
@@ -203,7 +206,7 @@ for (const [entryPath, name] of Object.entries(dependencyTargets)) {
   const packagePath = entryPath.slice(0, entryPath.indexOf(name) + name.length) + "/package.json";
   const dependencyPackage = readJson(packagePath);
   assert.equal(dependencyPackage.name, name);
-  assert.equal(dependencyPackage.version, pkg.dependencies[name]);
+  assert.equal(dependencyPackage.version, pinnedDependencyVersion(name, pkg.dependencies[name]));
 }
 const catppuccinName = "@sherif-fanous/pi-catppuccin";
 const catppuccinPackage = readJson(`node_modules/${catppuccinName}/package.json`);
@@ -300,18 +303,24 @@ assert.equal(
 );
 assert.match(themePickerLock.integrity, /^sha512-/);
 
-const inputHistoryName = "pi-input-history";
-const inputHistoryVersion = pkg.dependencies[inputHistoryName];
-const inputHistoryLock = lock.packages[`node_modules/${inputHistoryName}`];
-assert.equal(inputHistoryLock.version, inputHistoryVersion);
-assert.equal(
-  inputHistoryLock.resolved,
-  `https://registry.npmjs.org/${inputHistoryName}/-/pi-input-history-${inputHistoryVersion}.tgz`,
+const historyName = "pi-history";
+const historyVersion = pinnedDependencyVersion(historyName, pkg.dependencies[historyName]);
+const historyLock = lock.packages[`node_modules/${historyName}`];
+assert.equal(historyLock.version, historyVersion);
+// npm canonicalizes GitHub dependencies to git+ssh even when the manifest
+// uses HTTPS. Either transport must resolve this repository at a full commit.
+assert.match(
+  historyLock.resolved,
+  /^git\+(?:https:\/\/github\.com|ssh:\/\/git@github\.com)\/ningw42\/pi-history\.git#[0-9a-f]{40}$/,
 );
-assert.match(inputHistoryLock.integrity, /^sha512-/);
-const inputHistoryPackage = readJson(`node_modules/${inputHistoryName}/package.json`);
-assert.equal(inputHistoryPackage.license, "MIT");
-assert.deepEqual(inputHistoryPackage.pi, { extensions: ["./index.ts"] });
+assert.equal(historyLock.inBundle, true);
+const historyPackage = readJson(`node_modules/${historyName}/package.json`);
+assert.deepEqual(historyPackage.pi, { extensions: ["./src/index.ts"] });
+for (const peer of Object.keys(historyPackage.peerDependencies)) {
+  assert.equal(Object.hasOwn(lock.packages, `node_modules/${peer}`), false, `${historyName} host peers must be supplied by Pi`);
+}
+assert.equal(Object.hasOwn(pkg.dependencies, "pi-input-history"), false);
+assert.equal(Object.hasOwn(lock.packages, "node_modules/pi-input-history"), false);
 
 const loopName = "@pwguler/pi-loop";
 const loopVersion = pkg.dependencies[loopName];

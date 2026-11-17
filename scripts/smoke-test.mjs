@@ -87,6 +87,7 @@ function collectResourceFiles(path) {
 
 const expectedSkillFiles = expectedSkillResources.flatMap(collectResourceFiles);
 const expectedThemeFiles = expectedThemeResources.flatMap(collectResourceFiles);
+const expectedHistoryFiles = collectResourceFiles("node_modules/pi-history/src");
 
 function rpcSmoke(source) {
   return getPiCommands(source, {
@@ -130,6 +131,7 @@ try {
     "extensions/pi-cc-extensions/index.ts",
     "extensions/pi-dynamic-workflows/index.ts",
     "extensions/pi-inline-skills/index.ts",
+    "extensions/pi-history/index.ts",
     "extensions/pi-input-history/index.ts",
     "extensions/pi-loop/index.ts",
     "extensions/pi-theme-picker/index.ts",
@@ -157,9 +159,9 @@ try {
     "node_modules/@thinkscape/pi-status/LICENSE",
     "node_modules/@tifan/pi-inline-skills/package.json",
     "node_modules/@tifan/pi-inline-skills/src/index.ts",
-    "node_modules/pi-input-history/package.json",
-    "node_modules/pi-input-history/index.ts",
-    "node_modules/pi-input-history/LICENSE",
+    "node_modules/pi-history/package.json",
+    "node_modules/pi-history/README.md",
+    ...expectedHistoryFiles.map(toArchivePath),
     "node_modules/@pwguler/pi-loop/package.json",
     "node_modules/@pwguler/pi-loop/extensions/index.ts",
     "node_modules/@pwguler/pi-loop/LICENSE",
@@ -178,6 +180,7 @@ try {
     "themes/",
     "prompts/",
     "node_modules/@earendil-works/pi-coding-agent/",
+    "node_modules/pi-input-history/",
   ]) {
     assert.equal(
       archiveEntries.some((entry) => entry.startsWith(forbiddenPrefix)),

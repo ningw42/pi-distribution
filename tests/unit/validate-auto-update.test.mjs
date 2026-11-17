@@ -136,7 +136,9 @@ function fixture(t, { prepareBase = () => {} } = {}) {
       packages: {
         "": { name: pkg.name, version: pkg.version, ...(pkg.dependencies && { dependencies: pkg.dependencies }), ...(pkg.devDependencies && { devDependencies: pkg.devDependencies }) },
         ...Object.fromEntries(Object.entries(dependencies).map(([name, version]) => [
-          `node_modules/${name}`, { version, resolved: `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz` },
+          `node_modules/${name}`, version.startsWith("git+https://github.com/ningw42/pi-history.git#v")
+            ? { version: version.split("#v")[1], resolved: `git+ssh://git@github.com/ningw42/pi-history.git#${hash(version).slice(0, 40)}` }
+            : { version, resolved: `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz` },
         ])),
       },
     });
@@ -184,7 +186,7 @@ function fixture(t, { prepareBase = () => {} } = {}) {
   });
   rtk("1.0.0");
   write("scripts/rtk-candidate.mjs", "throw new Error('must not import candidate code');\n");
-  const repo = { cwd, git, write, readJson, writeJson, commit, save, npm, rtk, setMode };
+  const repo = { cwd, git, write, readJson, writeJson, writePackage, commit, save, npm, rtk, setMode };
   prepareBase(repo);
   return { ...repo, base: save() };
 }
@@ -196,6 +198,49 @@ test("authorizes and validates an npm-only committed update", (t) => {
   const scope = authorize(rootPaths, head);
   assert.deepEqual(scope, npmScope);
   assert.deepEqual(validateUpdate(repo.base, head, scope, repo), npmScope);
+});
+
+function historyFixture(t) {
+  return fixture(t, { prepareBase(repo) {
+    const pkg = repo.readJson(rootPaths[0]);
+    pkg.dependencies["pi-history"] = "git+https://github.com/ningw42/pi-history.git#v0.0.1";
+    repo.writePackage(rootPaths, pkg);
+  } });
+}
+
+test("pi-history-only releases pass the trusted pending and merged CLI gates", (t) => {
+  const repo = historyFixture(t);
+  const pkg = repo.readJson(rootPaths[0]);
+  pkg.dependencies["pi-history"] = "git+https://github.com/ningw42/pi-history.git#v0.0.2";
+  repo.writePackage(rootPaths, pkg);
+  const head = repo.save();
+  for (const pending of [false, true]) {
+    const result = runCli(repo, rootPaths, head, { pending });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, "npm\n");
+  }
+});
+
+test("unchanged pi-history pins do not block npm, smoke-runtime, or RTK updates", (t) => {
+  const repo = historyFixture(t);
+  repo.npm(); repo.npm(smokePaths); repo.rtk();
+  const head = repo.save();
+  const paths = [...rootPaths, ...smokePaths, rtkPaths[2]];
+  assert.deepEqual(validateUpdate(repo.base, head, authorize(paths, head), repo), mixedScope);
+});
+
+test("trusted CLI rejects switching pi-history to its npm namesake", (t) => {
+  const repo = historyFixture(t);
+  const pkg = repo.readJson(rootPaths[0]);
+  pkg.dependencies["pi-history"] = "0.1.2";
+  repo.writePackage(rootPaths, pkg);
+  const head = repo.save();
+  for (const pending of [false, true]) {
+    const result = runCli(repo, rootPaths, head, { pending });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /pi-history must remain exactly pinned/);
+  }
 });
 
 for (const [name, paths, expected, update] of [

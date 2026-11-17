@@ -50,6 +50,50 @@ test("accepts exact updates to dependencies and devDependencies", () => {
   );
 });
 
+const historySpec = (tag) => `git+https://github.com/ningw42/pi-history.git#${tag}`;
+
+test("accepts a pinned pi-history GitHub release update alongside exact npm pins", () => {
+  const base = structuredClone(basePackage);
+  base.dependencies["pi-history"] = historySpec("v0.0.1");
+  const head = structuredClone(base);
+  head.dependencies["pi-history"] = historySpec("v1.2.3");
+  assert.deepEqual(validateNpmUpdate(base, head, matchingLock(head)), [{
+    section: "dependencies", name: "pi-history",
+    from: historySpec("v0.0.1"), to: historySpec("v1.2.3"),
+  }]);
+
+  head.dependencies["pi-history"] = base.dependencies["pi-history"];
+  head.dependencies.runtime = "1.1.0";
+  assert.equal(validateNpmUpdate(base, head, matchingLock(head))[0].name, "runtime");
+});
+
+for (const spec of [
+  "0.1.2", "npm:pi-history@0.1.2",
+  "git+https://github.com/sagmans/pi-history.git#v0.1.2",
+  "git+https://github.com/ningw42/pi-history-fork.git#v1.0.0",
+  "https://github.com/ningw42/pi-history/archive/refs/tags/v1.0.0.tar.gz",
+  ...["main", "latest", "semver:^1.0.0", "1.0.0", "v1.0", "v01.0.0", "v1.0.0-rc.1", "v1.0.0+build", "a".repeat(40), "v1.0.0/extra"].map(historySpec),
+]) {
+  test(`rejects pi-history source or release-pin drift: ${spec}`, () => {
+    const base = structuredClone(basePackage);
+    base.dependencies["pi-history"] = historySpec("v0.0.1");
+    const head = structuredClone(base);
+    head.dependencies["pi-history"] = spec;
+    assert.throws(() => validateNpmUpdate(base, head, matchingLock(head)), /pi-history must remain exactly pinned/);
+  });
+}
+
+test("the Git release exception does not allow arbitrary dependencies to switch sources", () => {
+  const head = updatedPackage({ runtime: historySpec("v1.0.0") });
+  assert.throws(() => validateNpmUpdate(basePackage, head, matchingLock(head)), /runtime must remain exactly pinned/);
+});
+
+test("a pi-history release update requires a matching lockfile pin", () => {
+  const base = { dependencies: { "pi-history": historySpec("v0.0.1") } };
+  const head = { dependencies: { "pi-history": historySpec("v0.0.2") } };
+  assert.throws(() => validateNpmUpdate(base, head, matchingLock(base)), /lockfile root dependencies/);
+});
+
 test("accepts a devDependency-only update", () => {
   const headPackage = updatedPackage({ development: "2.1.0" });
 

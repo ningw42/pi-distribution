@@ -78,6 +78,19 @@ Upstream: <https://github.com/pwguler/pi-loop>
 License: MIT. The license file remains in the installed package directory at
 `node_modules/@pwguler/pi-loop/LICENSE`.
 
+## Prompt history
+
+`pi-history` is consumed unmodified from an exact GitHub release tag of
+<https://github.com/ningw42/pi-history> and exposed as `pi-history`, with a
+legacy `pi-input-history` forwarding path for compatibility. `package.json` records the release tag;
+`package-lock.json` records the resolved Git commit. The entry point is
+`node_modules/pi-history/src/index.ts`. This is not the unrelated npm package
+named `pi-history`.
+
+License: the upstream v0.0.1 release declares no license and includes no license
+file. No MIT or other open-source license is inferred; redistribution rights
+are not granted by a license in that release.
+
 ## Package dependencies
 
 The remaining extension implementations and their public Pi resources are
@@ -89,7 +102,7 @@ copied into `vendor/`:
 - `@juicesharp/rpiv-btw` (MIT)
 - `@pwguler/pi-loop` (MIT)
 - `pi-cc-extensions`
-- `pi-input-history` (MIT)
+- `pi-history` from `ningw42/pi-history` (no declared license; see above)
 - `@sherif-fanous/pi-catppuccin` (MIT)
 - `@thinkscape/pi-status` (MIT)
 - `@quintinshaw/pi-dynamic-workflows`, a continuation of Michael Livs'
@@ -108,6 +121,6 @@ The aggregate also exposes every theme shipped in the pinned
 upstream license files, supporting skill and theme files, and package metadata
 remain within their installed or bundled package directories. The bundled
 `@juicesharp/rpiv-ask-user-question`, `@juicesharp/rpiv-btw`,
-`@sherif-fanous/pi-catppuccin`, `@thinkscape/pi-status`, `pi-input-history`,
+`@sherif-fanous/pi-catppuccin`, `@thinkscape/pi-status`,
 `pi-theme-picker`, `@everyx/pi-status-line`, and `@pwguler/pi-loop` packages
 include their MIT licenses.

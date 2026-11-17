@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { getPiCommands } from "../helpers/pi-rpc.mjs";
 
 const loop = fileURLToPath(new URL("../../extensions/pi-loop/index.ts", import.meta.url));
+const history = fileURLToPath(new URL("../../extensions/pi-history/index.ts", import.meta.url));
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), "pi-rpc-isolation-"));
@@ -67,6 +68,12 @@ test("RPC isolation still loads every explicitly requested extension", (t) => {
   const commands = getPiCommands([loop, probe], options);
   assertIsolatedLoop(commands);
   assert.equal(commands.find((command) => command.name === "explicit-probe")?.sourceInfo?.path, probe);
+});
+
+test("RPC loads pi-history without exposing TUI-only history commands or resources", (t) => {
+  const { options } = fixture(t);
+  const commands = getPiCommands(history, options);
+  assert.deepEqual(commands.filter((command) => ["extension", "skill", "prompt"].includes(command.source)), []);
 });
 
 test("RPC loads only the loop command and leaves project state untouched", (t) => {
