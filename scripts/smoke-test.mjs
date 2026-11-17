@@ -121,6 +121,11 @@ try {
   assert.equal(existsSync(tarball), true);
 
   const archiveEntries = packed.files.map(({ path }) => toArchivePath(path));
+  assert.deepEqual(
+    archiveEntries.filter((path) => /^extensions\/[^/]+\/index\.ts$/.test(path)).sort(),
+    pkg.pi.extensions.map(toArchivePath).sort(),
+    "packed extension shims must match the declared inventory without legacy aliases",
+  );
   const requiredArchiveEntries = [
     "package.json",
     "extensions/pi-rtk/index.ts",
@@ -132,7 +137,6 @@ try {
     "extensions/pi-dynamic-workflows/index.ts",
     "extensions/pi-inline-skills/index.ts",
     "extensions/pi-history/index.ts",
-    "extensions/pi-input-history/index.ts",
     "extensions/pi-loop/index.ts",
     "extensions/pi-theme-picker/index.ts",
     "extensions/pi-subagents/index.ts",
@@ -180,7 +184,6 @@ try {
     "themes/",
     "prompts/",
     "node_modules/@earendil-works/pi-coding-agent/",
-    "node_modules/pi-input-history/",
   ]) {
     assert.equal(
       archiveEntries.some((entry) => entry.startsWith(forbiddenPrefix)),

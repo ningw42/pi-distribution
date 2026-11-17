@@ -81,9 +81,8 @@ License: MIT. The license file remains in the installed package directory at
 ## Prompt history
 
 `pi-history` is consumed unmodified from an exact GitHub release tag of
-<https://github.com/ningw42/pi-history> and exposed as `pi-history`, with a
-legacy `pi-input-history` forwarding path for compatibility. `package.json` records the release tag;
-`package-lock.json` records the resolved Git commit. The entry point is
+<https://github.com/ningw42/pi-history> and exposed as `pi-history`.
+`package.json` records the release tag; `package-lock.json` records the resolved Git commit. The entry point is
 `node_modules/pi-history/src/index.ts`. This is not the unrelated npm package
 named `pi-history`.
 

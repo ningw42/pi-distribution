@@ -139,11 +139,9 @@ The themes are available after installation, but installation does not select on
 
 The `pi-history` extension forwards to the unmodified
 [`ningw42/pi-history`](https://github.com/ningw42/pi-history) GitHub release, not
-the old npm `pi-input-history` or the unrelated npm package named `pi-history`.
-The manifest exposes `extensions/pi-history/index.ts`; the old
-`extensions/pi-input-history/index.ts` remains only as a compatibility forwarding
-path for existing direct references, not a second activated extension. Prefer
-the new path and do not load both or another prompt-history extension alongside it.
+the unrelated npm package named `pi-history`. The only history entry point is
+`extensions/pi-history/index.ts`; no legacy compatibility alias is shipped.
+Do not load another prompt-history extension alongside it.
 
 Up at Pi's native recall position or Ctrl+R opens a history modal rather than
 recalling prompts directly into the input bar. Ctrl+R inside the modal switches
@@ -152,7 +150,7 @@ submitting it; Escape leaves the draft unchanged. Session files are read-only,
 and the extension is inactive outside interactive TUI mode.
 
 Optional settings live in `~/.pi/agent/pi-history.json` (or
-`$PI_CODING_AGENT_DIR/pi-history.json`), not the old extension's configuration.
+`$PI_CODING_AGENT_DIR/pi-history.json`).
 See the [upstream configuration guide](https://github.com/ningw42/pi-history#configuration)
 for matcher selection, key bindings, and the record limit.
 

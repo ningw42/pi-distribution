@@ -88,7 +88,6 @@ const shimTargets = {
   "extensions/pi-inline-skills/index.ts":
     "node_modules/@tifan/pi-inline-skills/src/index.ts",
   "extensions/pi-history/index.ts": "node_modules/pi-history/src/index.ts",
-  "extensions/pi-input-history/index.ts": "node_modules/pi-history/src/index.ts",
   "extensions/pi-loop/index.ts":
     "node_modules/@pwguler/pi-loop/extensions/index.ts",
   "extensions/pi-theme-picker/index.ts": "node_modules/pi-theme-picker/index.ts",
@@ -118,6 +117,11 @@ assert.deepEqual(pkg.pi, {
   skills: expectedSkills,
   themes: expectedThemes,
 });
+assert.deepEqual(
+  sorted(readdirSync(join(root, "extensions")).map((name) => `./extensions/${name}/index.ts`)),
+  sorted(expectedExtensions),
+  "extension directories must match the declared inventory without legacy aliases",
+);
 for (const [resourceType, expectedPaths] of Object.entries(pkg.pi)) {
   assert.equal(
     new Set(expectedPaths).size,
@@ -319,8 +323,6 @@ assert.deepEqual(historyPackage.pi, { extensions: ["./src/index.ts"] });
 for (const peer of Object.keys(historyPackage.peerDependencies)) {
   assert.equal(Object.hasOwn(lock.packages, `node_modules/${peer}`), false, `${historyName} host peers must be supplied by Pi`);
 }
-assert.equal(Object.hasOwn(pkg.dependencies, "pi-input-history"), false);
-assert.equal(Object.hasOwn(lock.packages, "node_modules/pi-input-history"), false);
 
 const loopName = "@pwguler/pi-loop";
 const loopVersion = pkg.dependencies[loopName];
