@@ -7,6 +7,15 @@ import { fileURLToPath } from "node:url";
 const dependencySections = ["dependencies", "devDependencies"];
 const exactVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const sorted = (values) => [...values].sort();
+const historyRelease = /^git\+https:\/\/github\.com\/ningw42\/pi-history\.git#v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/;
+
+// pi-history is Git-only. Never resolve its unrelated namesake on npm, or
+// broaden this exception to arbitrary Git repositories or moving references.
+export function pinnedDependencyVersion(name, spec) {
+  const pattern = name === "pi-history" ? historyRelease : exactVersion;
+  assert.match(spec, pattern, `${name} must remain exactly pinned${name === "pi-history" ? " to a ningw42/pi-history release tag" : ""}`);
+  return name === "pi-history" ? spec.match(historyRelease)[1] : spec;
+}
 
 export function validateNpmUpdate(
   basePackage,
@@ -27,7 +36,7 @@ export function validateNpmUpdate(
     );
 
     for (const [name, version] of Object.entries(headDependencies)) {
-      assert.match(version, exactVersion, `${name} must remain exactly pinned`);
+      pinnedDependencyVersion(name, version);
       if (version !== baseDependencies[name]) {
         changed.push({ section, name, from: baseDependencies[name], to: version });
       }

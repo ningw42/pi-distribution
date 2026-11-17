@@ -18,7 +18,7 @@ The package exposes extensions through a uniform forwarding-shim layer, skills, 
 | `pi-cc-extensions` | npm dependency | `package.json` |
 | `pi-dynamic-workflows` | npm dependency `@quintinshaw/pi-dynamic-workflows` | `package.json` |
 | `pi-inline-skills` | npm dependency `@tifan/pi-inline-skills`; adds inline `/skill` autocomplete and loads referenced skills for the turn | `package.json` |
-| `pi-input-history` | npm dependency; restores per-directory prompt history across sessions for Up/Down navigation and configurable fuzzy reverse search | `package.json` |
+| `pi-history` | GitHub release dependency [`ningw42/pi-history`](https://github.com/ningw42/pi-history); Up/Ctrl+R opens a history modal with repo/global scope and fuzzy search | `package.json` |
 | `pi-loop` | npm dependency `@pwguler/pi-loop`; schedules interval/cron prompts in the current interactive conversation through `/loop` | `package.json` |
 | `pi-theme-picker` | npm dependency; adds the `/theme` picker | `package.json` |
 | `pi-subagents` | npm dependency `@tintinweb/pi-subagents` | `package.json` |
@@ -107,13 +107,14 @@ tar -xzf $asset -C $destination --strip-components=1
 pi install $destination
 ```
 
-The extracted directory already contains the package's npm runtime dependency closure, so installation does not contact the npm registry. Pi itself and the external `rtk` and `starship` runtime prerequisites are not included.
+The extracted directory already contains the package's npm runtime dependency closure, so installation does not contact the npm registry. Pi itself and the external `rtk`, `starship`, and history search matcher prerequisites are not included.
 
 ## Runtime prerequisites
 
-- Pi 1.2.0 or a compatible later version, matching the verified smoke runtime.
+- Pi 1.5.2 or a compatible later version, matching the verified smoke runtime and `pi-history` target.
 - `rtk >= 0.23` in `PATH`. The tracked generator release is recorded in [`vendor/pi-rtk/metadata.json`](vendor/pi-rtk/metadata.json).
 - `starship` in `PATH` for the statusline's directory and Git segments.
+- `fzf` in `PATH` for history search, or `sk` (skim) when configured in `pi-history.json`. Without a matcher, newest-first history browsing still works.
 
 Set `PI_STATUSLINE_STARSHIP` to use an explicit Starship binary path:
 
@@ -133,6 +134,25 @@ The aggregate root is the public resource interface. Its `package.json` explicit
 No dependency ships a prompt template, so `pi.prompts` is absent. Extension and statically declared skill entries use exact paths. The theme entries deliberately expose only the two dependency-owned theme directories, allowing each dependency to own its inventory without activating dependency manifests or unrelated files elsewhere under `node_modules`.
 
 The themes are available after installation, but installation does not select one. Use the bundled `pi-theme-picker` extension's `/theme` command to preview, select, and persist a theme, or configure one manually. Theme selection remains consumer configuration.
+
+## Prompt history
+
+The `pi-history` extension forwards to the unmodified
+[`ningw42/pi-history`](https://github.com/ningw42/pi-history) GitHub release, not
+the unrelated npm package named `pi-history`. The only history entry point is
+`extensions/pi-history/index.ts`; no legacy compatibility alias is shipped.
+Do not load another prompt-history extension alongside it.
+
+Up at Pi's native recall position or Ctrl+R opens a history modal rather than
+recalling prompts directly into the input bar. Ctrl+R inside the modal switches
+between repository and global scope. Enter restores the selected prompt without
+submitting it; Escape leaves the draft unchanged. Session files are read-only,
+and the extension is inactive outside interactive TUI mode.
+
+Optional settings live in `~/.pi/agent/pi-history.json` (or
+`$PI_CODING_AGENT_DIR/pi-history.json`).
+See the [upstream configuration guide](https://github.com/ningw42/pi-history#configuration)
+for matcher selection, key bindings, and the record limit.
 
 ## Scheduled loops
 
@@ -216,8 +236,8 @@ Set `KEEP_SMOKE_TMP=1` to retain its temporary package and logs for inspection. 
 
 ## Repository automation
 
-GitHub Actions owns Renovate's scheduled and manual runs. Exact npm and generated
-RTK updates share one PR, which GitHub squash-merges after the required Linux x64,
+GitHub Actions owns Renovate's scheduled and manual runs. Exact npm, pinned
+`pi-history` GitHub release, and generated RTK updates share one PR, which GitHub squash-merges after the required Linux x64,
 Windows x64, and Windows ARM64 checks pass, then deletes the source branch. RTK generation and tests run
 without the publication PAT.
 
@@ -236,6 +256,19 @@ npm --prefix tests/smoke-runtime ci --include=dev --ignore-scripts
 npm run test:all
 ```
 
+`pi-history` is Git-only. Update its exact published release tag instead of
+installing its unrelated npm namesake:
+
+```bash
+npm install --save-exact --ignore-scripts \
+  'pi-history@git+https://github.com/ningw42/pi-history.git#v<version>'
+npm run test:all
+```
+
+The lockfile records the resolved Git commit. Renovate's npm manager updates
+the tag and lockfile together, using GitHub **releases** rather than all Git
+tags. Only stable `vX.Y.Z` releases from `ningw42/pi-history` are eligible.
+
 Update the independently locked Pi smoke runtime as an exact development dependency:
 
 ```bash
@@ -245,7 +278,7 @@ npm --prefix tests/smoke-runtime install --save-dev --save-exact --include=dev -
 npm run test:all
 ```
 
-Renovate groups production, smoke-runtime, and generated RTK updates into one
+Renovate groups production (including `pi-history`), smoke-runtime, and generated RTK updates into one
 CI-gated, automatically merged PR. This includes major updates; failed checks
 leave the PR open for investigation.
 

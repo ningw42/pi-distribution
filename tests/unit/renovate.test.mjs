@@ -268,6 +268,26 @@ test("Renovate policy groups npm and RTK, disables dashboard, and gates auto-mer
   assert.equal(manager.datasourceTemplate, "github-releases");
 });
 
+test("pi-history uses published GitHub releases through npm and stays in the CI-gated group", () => {
+  const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url)));
+  assert.match(pkg.dependencies["pi-history"], /^git\+https:\/\/github\.com\/ningw42\/pi-history\.git#v\d+\.\d+\.\d+$/);
+  const rule = policy.packageRules.find((rule) => rule.matchDepNames?.includes("pi-history"));
+  assert.ok(rule, "pi-history needs an explicit release-only lookup");
+  assert.deepEqual(rule.matchManagers, ["npm"]);
+  assert.deepEqual(rule.matchPackageNames, ["ningw42/pi-history"]);
+  assert.equal(rule.overrideDatasource, "github-releases");
+  assert.equal(rule.pinDigests, false, "keep the release tag so npm updates the tag and lock together");
+  const allowed = new RegExp(rule.allowedVersions.slice(1, -1));
+  for (const tag of ["v0.0.1", "v1.2.3", "v10.20.30"]) assert.ok(allowed.test(tag));
+  for (const tag of ["main", "1.2.3", "v1.2", "v01.2.3", "v1.2.3-rc.1", "v1.2.3+build"]) assert.equal(allowed.test(tag), false);
+  assert.equal(rule.postUpgradeTasks, undefined);
+  const group = policy.packageRules.find((rule) => rule.groupName === "dependencies");
+  assert.ok(group.matchManagers.includes("npm"));
+  assert.equal(group.rangeStrategy, "pin");
+  assert.equal(group.separateMajorMinor, false);
+  assert.deepEqual(group.labels, ["auto-release:dependencies"]);
+});
+
 test("global config only permits copying the prepared version with fixed tooling", () => {
   const source = readFileSync(new URL("../../.github/renovate.config.cjs", import.meta.url), "utf8");
   const require = createRequire(import.meta.url);

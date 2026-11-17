@@ -40,7 +40,16 @@
       "enabled": false
     },
     {
-      "description": "Group exact npm and generated RTK updates behind required cross-platform CI",
+      "description": "Track published pi-history releases, not unreleased Git tags or the unrelated npm package",
+      "matchManagers": ["npm"],
+      "matchDepNames": ["pi-history"],
+      "matchPackageNames": ["ningw42/pi-history"],
+      "overrideDatasource": "github-releases",
+      "allowedVersions": "/^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$/",
+      "pinDigests": false
+    },
+    {
+      "description": "Group pinned npm, pi-history release, and generated RTK updates behind required cross-platform CI",
       "matchManagers": ["npm", "custom.regex"],
       "rangeStrategy": "pin",
       "groupName": "dependencies",
