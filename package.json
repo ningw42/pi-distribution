@@ -37,7 +37,7 @@
     "@tintinweb/pi-subagents": "0.26.1",
     "@tintinweb/pi-tasks": "0.9.1",
     "pi-cc-extensions": "1.0.21",
-    "pi-history": "git+https://github.com/ningw42/pi-history.git#v0.0.1",
+    "pi-history": "git+https://github.com/ningw42/pi-history.git#v0.0.2",
     "pi-theme-picker": "0.1.2"
   },
   "bundleDependencies": [
