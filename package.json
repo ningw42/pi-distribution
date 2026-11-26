@@ -36,7 +36,7 @@
     "@tifan/pi-inline-skills": "1.0.7",
     "@tintinweb/pi-subagents": "0.26.3",
     "@tintinweb/pi-tasks": "0.9.1",
-    "pi-cc-extensions": "1.0.22",
+    "pi-cc-extensions": "1.0.23",
     "pi-history": "git+https://github.com/ningw42/pi-history.git#v0.0.2",
     "pi-theme-picker": "0.1.2"
   },
